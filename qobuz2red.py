@@ -450,19 +450,22 @@ def main():
         # Prompt for upload fields
         upload_fields = prompt_upload_fields(metadata)
         
-        # Dry run first
-        print("\n" + "="*50)
-        print("PERFORMING DRY RUN...")
-        print("="*50)
+        # Ask if user wants to do a dry run first
+        do_dry_run = input("\nDo dry run first? (Y/n): ").strip().lower()
         
-        dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
-        
-        print(f"\nDry run result:")
-        print(json.dumps(dry_run_result, indent=2))
-        
-        if dry_run_result.get("status") != "dry run success":
-            print(f"\nDry run failed: {dry_run_result.get('error', 'Unknown error')}")
-            sys.exit(1)
+        if do_dry_run != 'n':
+            print("\n" + "="*50)
+            print("PERFORMING DRY RUN...")
+            print("="*50)
+            
+            dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
+            
+            print(f"\nDry run result:")
+            print(json.dumps(dry_run_result, indent=2))
+            
+            if dry_run_result.get("status") != "success":
+                print(f"\nDry run failed: {dry_run_result.get('error', 'Unknown error')}")
+                sys.exit(1)
         
         # Ask to proceed with actual upload
         proceed = input("\nProceed with actual upload? (y/N): ").strip().lower()
