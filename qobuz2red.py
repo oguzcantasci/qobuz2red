@@ -201,6 +201,68 @@ def get_qobuz_cover(url):
         return None
 
 
+def get_qobuz_tracklist(url):
+    """Extract tracklist from Qobuz album page."""
+    if not url:
+        return None
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        tracks = []
+        
+        # Find all track rows - they typically have track number, title, and duration
+        # Look for track items in the page
+        track_elements = soup.find_all('div', class_='track__item')
+        
+        if not track_elements:
+            # Alternative: look for track rows
+            track_elements = soup.find_all(class_='track')
+        
+        for i, track in enumerate(track_elements, 1):
+            # Try to get track title
+            title_elem = track.find(class_='track__item--name') or track.find(class_='track-name')
+            if not title_elem:
+                # Try finding any element with track title
+                title_elem = track.find('span', class_=lambda x: x and 'name' in x.lower() if x else False)
+            
+            # Try to get duration
+            duration_elem = track.find(class_='track__item--duration') or track.find(class_='track-duration')
+            if not duration_elem:
+                # Look for time format pattern
+                duration_elem = track.find(string=lambda x: x and ':' in x and len(x.strip()) in [5, 7, 8] if x else False)
+            
+            title = title_elem.get_text(strip=True) if title_elem else f"Track {i}"
+            
+            # Get duration text
+            if duration_elem:
+                if hasattr(duration_elem, 'get_text'):
+                    duration = duration_elem.get_text(strip=True)
+                else:
+                    duration = str(duration_elem).strip()
+            else:
+                duration = "00:00"
+            
+            # Clean up duration - ensure format is consistent
+            if duration and not duration.startswith('00:'):
+                # If duration is like "3:37", convert to "00:03:37"
+                if len(duration) <= 5:
+                    duration = f"00:{duration.zfill(5)}"
+            
+            tracks.append(f"{i}. {title} — {duration}")
+        
+        if tracks:
+            return "Tracklist:\n\n" + "\n".join(tracks)
+        
+        return None
+    except Exception as e:
+        print(f"Warning: Could not fetch tracklist: {e}")
+        return None
+
+
 # Release type mappings for RED
 RELEASE_TYPES = {
     1: "Album",
@@ -234,9 +296,23 @@ def prompt_field(field_name, default_value, required=True):
             print(f"  {field_name} is required.")
 
 
-def prompt_multiline(field_name):
+def prompt_multiline(field_name, default=None):
     """Prompt user for multi-line input. Empty line to finish."""
-    print(f"{field_name} (press Enter twice to finish, or just Enter to skip):")
+    if default:
+        print(f"\n{field_name} - Default from Qobuz:")
+        print("-" * 40)
+        print(default)
+        print("-" * 40)
+        use_default = input(f"Use this {field_name.lower()}? (Y/n/edit): ").strip().lower()
+        if use_default == 'n':
+            return ""
+        elif use_default == 'edit':
+            print(f"Enter new {field_name} (press Enter twice to finish):")
+        else:
+            return default
+    else:
+        print(f"{field_name} (press Enter twice to finish, or just Enter to skip):")
+    
     lines = []
     while True:
         line = input()
@@ -278,13 +354,20 @@ def prompt_upload_fields(metadata, qobuz_url=None):
         qobuz_url
     )
     
-    # Try to get album cover from Qobuz
-    print("Fetching album cover from Qobuz...")
+    # Try to get album cover and tracklist from Qobuz
+    print("Fetching album info from Qobuz...")
     album_cover = get_qobuz_cover(qobuz_url)
+    tracklist = get_qobuz_tracklist(qobuz_url)
+    
     if album_cover:
         print(f"Found album cover: {album_cover[:50]}...")
     else:
         print("Could not fetch album cover automatically.")
+    
+    if tracklist:
+        print("Found tracklist from Qobuz page.")
+    else:
+        print("Could not fetch tracklist automatically.")
     
     fields = {}
     
@@ -340,8 +423,8 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     # Image URL
     fields["image"] = prompt_field("Image URL", album_cover or "", required=False)
     
-    # Album description (multi-line)
-    fields["album_desc"] = prompt_multiline("Album Description")
+    # Album description (multi-line, with tracklist default if available)
+    fields["album_desc"] = prompt_multiline("Album Description", tracklist)
     
     # Release description
     fields["release_desc"] = prompt_field("Release Description", release_desc, required=False)
