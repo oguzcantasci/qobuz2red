@@ -396,6 +396,7 @@ def main():
     flac_path = config["flac_path"]
     announce_url = config["announce_url"]
     torrent_output_dir = config["torrent_output_dir"]
+    api_key = config["api_key"]
     
     url = input("Enter Qobuz album URL: ").strip()
     
@@ -424,6 +425,49 @@ def main():
         print("Creating torrent file...")
         torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
         print(f"Torrent created: {torrent_path}")
+        
+        # Read metadata for upload
+        print("\nReading FLAC metadata...")
+        metadata = read_flac_metadata(final_path)
+        
+        if not metadata:
+            print("Error: Could not read FLAC metadata.")
+            sys.exit(1)
+        
+        # Prompt for upload fields
+        upload_fields = prompt_upload_fields(metadata)
+        
+        # Dry run first
+        print("\n" + "="*50)
+        print("PERFORMING DRY RUN...")
+        print("="*50)
+        
+        dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True)
+        
+        print(f"\nDry run result:")
+        print(json.dumps(dry_run_result, indent=2))
+        
+        if dry_run_result.get("status") != "success":
+            print(f"\nDry run failed: {dry_run_result.get('error', 'Unknown error')}")
+            sys.exit(1)
+        
+        # Ask to proceed with actual upload
+        proceed = input("\nProceed with actual upload? (y/N): ").strip().lower()
+        
+        if proceed == 'y':
+            print("\nUploading to RED...")
+            upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False)
+            
+            if upload_result.get("status") == "success":
+                response = upload_result.get("response", {})
+                print(f"\nUpload successful!")
+                print(f"  Torrent ID: {response.get('torrentid')}")
+                print(f"  Group ID: {response.get('groupid')}")
+            else:
+                print(f"\nUpload failed: {upload_result.get('error', 'Unknown error')}")
+                sys.exit(1)
+        else:
+            print("\nUpload cancelled.")
         
         print("\nDone!")
         
