@@ -158,8 +158,8 @@ def get_bitrate_string(bits_per_sample):
     return "Lossless"
 
 
-def get_release_description(bits_per_sample, sample_rate):
-    """Generate release description like '24/96 Qobuz Rip'."""
+def get_release_description(bits_per_sample, sample_rate, qobuz_url=None):
+    """Generate release description like '24/96 Qobuz Rip [url]'."""
     sample_rate_khz = sample_rate / 1000
     # Format sample rate nicely (44.1, 48, 96, etc.)
     if sample_rate_khz == int(sample_rate_khz):
@@ -167,7 +167,10 @@ def get_release_description(bits_per_sample, sample_rate):
     else:
         sample_rate_str = str(sample_rate_khz)
     
-    return f"{bits_per_sample}/{sample_rate_str} Qobuz Rip"
+    desc = f"{bits_per_sample}/{sample_rate_str} Qobuz Rip"
+    if qobuz_url:
+        desc += f" [url]{qobuz_url}[/url]"
+    return desc
 
 
 # Release type mappings for RED
@@ -219,7 +222,7 @@ def prompt_release_type():
             print("  Please enter a number.")
 
 
-def prompt_upload_fields(metadata):
+def prompt_upload_fields(metadata, qobuz_url=None):
     """Prompt user to confirm/edit all upload fields."""
     print("\n" + "="*50)
     print("UPLOAD DETAILS - Confirm or edit each field")
@@ -229,7 +232,8 @@ def prompt_upload_fields(metadata):
     bitrate = get_bitrate_string(metadata["bits_per_sample"])
     release_desc = get_release_description(
         metadata["bits_per_sample"], 
-        metadata["sample_rate"]
+        metadata["sample_rate"],
+        qobuz_url
     )
     
     fields = {}
@@ -444,6 +448,9 @@ def main():
         if not url:
             print("Error: No URL provided.")
             sys.exit(1)
+    else:
+        # Ask for URL for release description when using existing album
+        url = input("Enter Qobuz album URL (for release description, optional): ").strip() or None
     
     try:
         if not use_existing:
@@ -491,7 +498,7 @@ def main():
             sys.exit(1)
         
         # Prompt for upload fields
-        upload_fields = prompt_upload_fields(metadata)
+        upload_fields = prompt_upload_fields(metadata, url)
         
         # Ask if user wants to do a dry run first
         do_dry_run = input("\nDo dry run first? (Y/n): ").strip().lower()
