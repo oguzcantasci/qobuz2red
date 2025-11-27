@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -56,6 +57,18 @@ def recompress_flac_files(album_folder, flac_path):
         )
 
 
+def move_album(album_folder, destination_dir):
+    """Move the album folder to the destination directory."""
+    if not os.path.exists(destination_dir):
+        os.makedirs(destination_dir)
+    
+    album_name = os.path.basename(album_folder)
+    destination_path = os.path.join(destination_dir, album_name)
+    
+    shutil.move(album_folder, destination_path)
+    return destination_path
+
+
 def main():
     config = load_config()
     
@@ -74,6 +87,10 @@ def main():
         print("Recompressing FLAC files to level 8...")
         recompress_flac_files(album_folder, flac_path)
         print("Recompression complete.")
+        
+        print(f"Moving album to {destination_dir}...")
+        final_path = move_album(album_folder, destination_dir)
+        print(f"Album moved to: {final_path}")
 
 
 if __name__ == "__main__":
