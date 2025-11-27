@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import sys
 
+from torf import Torrent
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
 
@@ -110,6 +112,28 @@ def get_piece_size(total_size):
         return 1024 * KiB
     else:
         return 2048 * KiB
+
+
+def create_torrent(album_folder, announce_url, output_dir):
+    """Create a RED-compliant torrent file."""
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    folder_size = get_folder_size(album_folder)
+    piece_size = get_piece_size(folder_size)
+    
+    album_name = os.path.basename(album_folder)
+    torrent_path = os.path.join(output_dir, f"{album_name}.torrent")
+    
+    t = Torrent(path=album_folder)
+    t.trackers = [announce_url]
+    t.source = "RED"
+    t.private = True
+    t.piece_size = piece_size
+    t.generate()
+    t.write(torrent_path)
+    
+    return torrent_path
 
 
 def main():
