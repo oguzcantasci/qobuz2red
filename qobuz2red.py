@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 
+import requests
 from mutagen.flac import FLAC
 from torf import Torrent
 
@@ -297,6 +298,68 @@ def prompt_upload_fields(metadata):
         fields["groupid"] = prompt_field("Group ID", "", required=True)
     
     return fields
+
+
+RED_API_URL = "https://redacted.sh/ajax.php"
+
+
+def upload_torrent(torrent_path, fields, api_key, dry_run=True):
+    """Upload torrent to RED via API."""
+    headers = {
+        "Authorization": api_key
+    }
+    
+    # Prepare form data
+    data = {
+        "dryrun": "true" if dry_run else "false",
+        "type": fields["type"],
+        "artists[]": fields["artists[]"],
+        "importance[]": fields["importance[]"],
+        "title": fields["title"],
+        "year": fields["year"],
+        "releasetype": fields["releasetype"],
+        "unknown": "true" if fields.get("unknown") else "false",
+        "scene": "true" if fields.get("scene") else "false",
+        "format": fields["format"],
+        "bitrate": fields["bitrate"],
+        "media": fields["media"],
+    }
+    
+    # Add optional fields if provided
+    if fields.get("remaster_year"):
+        data["remaster_year"] = fields["remaster_year"]
+    if fields.get("remaster_title"):
+        data["remaster_title"] = fields["remaster_title"]
+    if fields.get("remaster_record_label"):
+        data["remaster_record_label"] = fields["remaster_record_label"]
+    if fields.get("remaster_catalogue_number"):
+        data["remaster_catalogue_number"] = fields["remaster_catalogue_number"]
+    if fields.get("tags"):
+        data["tags"] = fields["tags"]
+    if fields.get("image"):
+        data["image"] = fields["image"]
+    if fields.get("album_desc"):
+        data["album_desc"] = fields["album_desc"]
+    if fields.get("release_desc"):
+        data["release_desc"] = fields["release_desc"]
+    if fields.get("groupid"):
+        data["groupid"] = fields["groupid"]
+    
+    # Open torrent file
+    with open(torrent_path, "rb") as f:
+        files = {
+            "file_input": (os.path.basename(torrent_path), f, "application/x-bittorrent")
+        }
+        
+        response = requests.post(
+            f"{RED_API_URL}?action=upload",
+            headers=headers,
+            data=data,
+            files=files
+        )
+    
+    result = response.json()
+    return result
 
 
 def create_torrent(album_folder, announce_url, output_dir):
