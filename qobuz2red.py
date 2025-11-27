@@ -385,6 +385,10 @@ def create_torrent(album_folder, announce_url, output_dir):
     album_name = os.path.basename(album_folder)
     torrent_path = os.path.join(output_dir, f"{album_name}.torrent")
     
+    # Remove existing torrent if present (for overwrite)
+    if os.path.exists(torrent_path):
+        os.remove(torrent_path)
+    
     t = Torrent(path=album_folder)
     t.trackers = [announce_url]
     t.source = "RED"
@@ -459,9 +463,23 @@ def main():
             final_path = move_album(album_folder, destination_dir)
             print(f"Album moved to: {final_path}")
         
-        print("Creating torrent file...")
-        torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
-        print(f"Torrent created: {torrent_path}")
+        # Check if torrent already exists
+        album_name = os.path.basename(final_path)
+        expected_torrent_path = os.path.join(torrent_output_dir, f"{album_name}.torrent")
+        
+        if os.path.exists(expected_torrent_path):
+            use_existing_torrent = input(f"\nTorrent already exists: {expected_torrent_path}\nUse existing? (Y/n): ").strip().lower()
+            if use_existing_torrent != 'n':
+                torrent_path = expected_torrent_path
+                print(f"Using existing torrent: {torrent_path}")
+            else:
+                print("Creating new torrent file...")
+                torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
+                print(f"Torrent created: {torrent_path}")
+        else:
+            print("Creating torrent file...")
+            torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
+            print(f"Torrent created: {torrent_path}")
         
         # Read metadata for upload
         print("\nReading FLAC metadata...")
