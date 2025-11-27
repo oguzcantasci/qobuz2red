@@ -10,6 +10,10 @@ CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
 
 def load_config():
     """Load configuration from config.json."""
+    if not os.path.exists(CONFIG_PATH):
+        print(f"Error: Config file not found at {CONFIG_PATH}")
+        sys.exit(1)
+    
     with open(CONFIG_PATH, "r") as f:
         return json.load(f)
 
@@ -49,7 +53,14 @@ def recompress_flac_files(album_folder, flac_path):
         if f.lower().endswith(".flac")
     ]
     
-    for flac_file in flac_files:
+    if not flac_files:
+        print("Warning: No FLAC files found in album folder.")
+        return
+    
+    print(f"Found {len(flac_files)} FLAC file(s) to recompress.")
+    
+    for i, flac_file in enumerate(flac_files, 1):
+        print(f"  [{i}/{len(flac_files)}] {flac_file}")
         file_path = os.path.join(album_folder, flac_file)
         subprocess.run(
             [flac_path, "-f8", file_path],
@@ -70,7 +81,11 @@ def move_album(album_folder, destination_dir):
 
 
 def main():
-    config = load_config()
+    try:
+        config = load_config()
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in config file: {e}")
+        sys.exit(1)
     
     download_dir = config["qobuz_download_dir"]
     destination_dir = config["destination_dir"]
@@ -78,10 +93,18 @@ def main():
     
     url = input("Enter Qobuz album URL: ").strip()
     
-    print(f"Downloading album...")
-    album_folder = download_album(url, download_dir)
+    if not url:
+        print("Error: No URL provided.")
+        sys.exit(1)
     
-    if album_folder:
+    try:
+        print("Downloading album...")
+        album_folder = download_album(url, download_dir)
+        
+        if not album_folder:
+            print("Error: Could not detect downloaded album folder.")
+            sys.exit(1)
+        
         print(f"Downloaded to: {album_folder}")
         
         print("Recompressing FLAC files to level 8...")
@@ -91,8 +114,16 @@ def main():
         print(f"Moving album to {destination_dir}...")
         final_path = move_album(album_folder, destination_dir)
         print(f"Album moved to: {final_path}")
+        
+        print("\nDone!")
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Command failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
-
