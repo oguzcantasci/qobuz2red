@@ -146,6 +146,8 @@ def main():
     download_dir = config["qobuz_download_dir"]
     destination_dir = config["destination_dir"]
     flac_path = config["flac_path"]
+    announce_url = config["announce_url"]
+    torrent_output_dir = config["torrent_output_dir"]
     
     url = input("Enter Qobuz album URL: ").strip()
     
@@ -170,6 +172,10 @@ def main():
         print(f"Moving album to {destination_dir}...")
         final_path = move_album(album_folder, destination_dir)
         print(f"Album moved to: {final_path}")
+        
+        print("Creating torrent file...")
+        torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
+        print(f"Torrent created: {torrent_path}")
         
         print("\nDone!")
         
