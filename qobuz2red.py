@@ -150,6 +150,25 @@ def read_flac_metadata(album_folder):
     return metadata
 
 
+def get_bitrate_string(bits_per_sample):
+    """Get RED bitrate string based on bit depth."""
+    if bits_per_sample == 24:
+        return "24bit Lossless"
+    return "Lossless"
+
+
+def get_release_description(bits_per_sample, sample_rate):
+    """Generate release description like '24/96 Qobuz Rip'."""
+    sample_rate_khz = sample_rate / 1000
+    # Format sample rate nicely (44.1, 48, 96, etc.)
+    if sample_rate_khz == int(sample_rate_khz):
+        sample_rate_str = str(int(sample_rate_khz))
+    else:
+        sample_rate_str = str(sample_rate_khz)
+    
+    return f"{bits_per_sample}/{sample_rate_str} Qobuz Rip"
+
+
 def create_torrent(album_folder, announce_url, output_dir):
     """Create a RED-compliant torrent file."""
     if not os.path.exists(output_dir):
