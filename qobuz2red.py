@@ -33,7 +33,7 @@ def download_album(url, download_dir):
     folders_before = get_existing_folders(download_dir)
     
     subprocess.run(
-        ["qobuz-dl", "dl", url, "-d", download_dir],
+        ["qobuz-dl", "dl","--no-db", url, "-d", download_dir],
         check=True
     )
     
@@ -78,6 +78,16 @@ def move_album(album_folder, destination_dir):
     
     shutil.move(album_folder, destination_path)
     return destination_path
+
+
+def get_folder_size(folder_path):
+    """Calculate total size of all files in a folder in bytes."""
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            total_size += os.path.getsize(file_path)
+    return total_size
 
 
 def main():
