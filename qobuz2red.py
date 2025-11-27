@@ -255,7 +255,7 @@ def prompt_upload_fields(metadata):
     fields["releasetype"] = prompt_release_type()
     
     # Unknown release
-    fields["unknown"] = False
+    fields["unknown"] = "0"
     print(f"Unknown release: No")
     
     # Edition/Remaster info
@@ -265,7 +265,7 @@ def prompt_upload_fields(metadata):
     fields["remaster_catalogue_number"] = prompt_field("Catalogue Number", "", required=False)
     
     # Scene release
-    fields["scene"] = False
+    fields["scene"] = "0"
     print(f"Scene release: No")
     
     # Format
@@ -303,7 +303,7 @@ def prompt_upload_fields(metadata):
 RED_API_URL = "https://redacted.sh/ajax.php"
 
 
-def upload_torrent(torrent_path, fields, api_key, dry_run=True, debug=False):
+def upload_torrent(torrent_path, fields, api_key, dry_run=False, debug=False):
     """Upload torrent to RED via API."""
     headers = {
         "Authorization": api_key
@@ -311,15 +311,15 @@ def upload_torrent(torrent_path, fields, api_key, dry_run=True, debug=False):
     
     # Prepare form data
     data = {
-        "dryrun": "true" if dry_run else "false",
+        "dryrun": "1" if dry_run else "0",
         "type": fields["type"],
         "artists[]": fields["artists[]"],
         "importance[]": fields["importance[]"],
         "title": fields["title"],
         "year": fields["year"],
         "releasetype": fields["releasetype"],
-        "unknown": "true" if fields.get("unknown") else "false",
-        "scene": "true" if fields.get("scene") else "false",
+        "unknown": fields.get("unknown", "0"),
+        "scene": fields.get("scene", "0"),
         "format": fields["format"],
         "bitrate": fields["bitrate"],
         "media": fields["media"],
@@ -460,7 +460,7 @@ def main():
         print(f"\nDry run result:")
         print(json.dumps(dry_run_result, indent=2))
         
-        if dry_run_result.get("status") != "success":
+        if dry_run_result.get("status") != "dry run success":
             print(f"\nDry run failed: {dry_run_result.get('error', 'Unknown error')}")
             sys.exit(1)
         
