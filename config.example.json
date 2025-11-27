@@ -4,6 +4,7 @@
     "flac_path": "flac",
     "announce_url": "https://flacsfor.me/YOUR_PASSKEY/announce",
     "torrent_output_dir": "C:\\Torrents",
-    "api_key": "YOUR_RED_API_KEY"
+    "api_key": "YOUR_RED_API_KEY",
+    "debug": false
 }
 

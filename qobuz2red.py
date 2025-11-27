@@ -303,7 +303,7 @@ def prompt_upload_fields(metadata):
 RED_API_URL = "https://redacted.sh/ajax.php"
 
 
-def upload_torrent(torrent_path, fields, api_key, dry_run=True):
+def upload_torrent(torrent_path, fields, api_key, dry_run=True, debug=False):
     """Upload torrent to RED via API."""
     headers = {
         "Authorization": api_key
@@ -344,6 +344,18 @@ def upload_torrent(torrent_path, fields, api_key, dry_run=True):
         data["release_desc"] = fields["release_desc"]
     if fields.get("groupid"):
         data["groupid"] = fields["groupid"]
+    
+    # Debug output
+    if debug:
+        print("\n" + "="*50)
+        print("DEBUG: API REQUEST DATA")
+        print("="*50)
+        print(f"URL: {RED_API_URL}?action=upload")
+        print(f"Torrent file: {torrent_path}")
+        print("\nForm data:")
+        for key, value in data.items():
+            print(f"  {key}: {value}")
+        print("="*50 + "\n")
     
     # Open torrent file
     with open(torrent_path, "rb") as f:
@@ -397,6 +409,7 @@ def main():
     announce_url = config["announce_url"]
     torrent_output_dir = config["torrent_output_dir"]
     api_key = config["api_key"]
+    debug = config.get("debug", False)
     
     url = input("Enter Qobuz album URL: ").strip()
     
@@ -442,7 +455,7 @@ def main():
         print("PERFORMING DRY RUN...")
         print("="*50)
         
-        dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True)
+        dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
         
         print(f"\nDry run result:")
         print(json.dumps(dry_run_result, indent=2))
@@ -456,7 +469,7 @@ def main():
         
         if proceed == 'y':
             print("\nUploading to RED...")
-            upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False)
+            upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False, debug=debug)
             
             if upload_result.get("status") == "success":
                 response = upload_result.get("response", {})
