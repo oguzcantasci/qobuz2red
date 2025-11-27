@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 import requests
+from bs4 import BeautifulSoup
 from mutagen.flac import FLAC
 from torf import Torrent
 
@@ -173,6 +174,33 @@ def get_release_description(bits_per_sample, sample_rate, qobuz_url=None):
     return desc
 
 
+def get_qobuz_cover(url):
+    """Extract album cover image URL from Qobuz album page."""
+    if not url:
+        return None
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Try to find the album cover image
+        img = soup.find(class_='album-cover__image')
+        if img and img.get('src'):
+            return img['src']
+        
+        # Fallback: look for og:image meta tag
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            return og_image['content']
+        
+        return None
+    except Exception as e:
+        print(f"Warning: Could not fetch album cover: {e}")
+        return None
+
+
 # Release type mappings for RED
 RELEASE_TYPES = {
     1: "Album",
@@ -236,6 +264,14 @@ def prompt_upload_fields(metadata, qobuz_url=None):
         qobuz_url
     )
     
+    # Try to get album cover from Qobuz
+    print("Fetching album cover from Qobuz...")
+    album_cover = get_qobuz_cover(qobuz_url)
+    if album_cover:
+        print(f"Found album cover: {album_cover[:50]}...")
+    else:
+        print("Could not fetch album cover automatically.")
+    
     fields = {}
     
     # Category (type)
@@ -288,7 +324,7 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     fields["tags"] = prompt_field("Tags (comma-separated)", metadata["genre"], required=False)
     
     # Image URL
-    fields["image"] = prompt_field("Image URL", "", required=False)
+    fields["image"] = prompt_field("Image URL", album_cover or "", required=False)
     
     # Album description
     fields["album_desc"] = prompt_field("Album Description", "", required=False)
