@@ -234,6 +234,20 @@ def prompt_field(field_name, default_value, required=True):
             print(f"  {field_name} is required.")
 
 
+def prompt_multiline(field_name):
+    """Prompt user for multi-line input. Empty line to finish."""
+    print(f"{field_name} (press Enter twice to finish, or just Enter to skip):")
+    lines = []
+    while True:
+        line = input()
+        if line == "":
+            if not lines:  # First empty line with no content = skip
+                return ""
+            break  # Empty line after content = done
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def prompt_release_type():
     """Prompt user to select a release type."""
     print("\nRelease Types:")
@@ -326,8 +340,8 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     # Image URL
     fields["image"] = prompt_field("Image URL", album_cover or "", required=False)
     
-    # Album description
-    fields["album_desc"] = prompt_field("Album Description", "", required=False)
+    # Album description (multi-line)
+    fields["album_desc"] = prompt_multiline("Album Description")
     
     # Release description
     fields["release_desc"] = prompt_field("Release Description", release_desc, required=False)
