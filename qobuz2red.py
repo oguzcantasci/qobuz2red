@@ -411,29 +411,53 @@ def main():
     api_key = config["api_key"]
     debug = config.get("debug", False)
     
-    url = input("Enter Qobuz album URL: ").strip()
+    # Check for existing albums in destination
+    existing_albums = get_existing_folders(destination_dir)
     
-    if not url:
-        print("Error: No URL provided.")
-        sys.exit(1)
+    if existing_albums:
+        print("\nExisting albums in destination:")
+        for i, album in enumerate(sorted(existing_albums), 1):
+            print(f"  {i}. {album}")
+        
+        use_existing = input("\nUse existing album? Enter number (or press Enter to download new): ").strip()
+        
+        if use_existing:
+            try:
+                album_index = int(use_existing) - 1
+                album_name = sorted(existing_albums)[album_index]
+                final_path = os.path.join(destination_dir, album_name)
+                print(f"\nUsing existing album: {final_path}")
+            except (ValueError, IndexError):
+                print("Invalid selection, proceeding with download...")
+                use_existing = None
+    else:
+        use_existing = None
+    
+    if not use_existing:
+        url = input("Enter Qobuz album URL: ").strip()
+        
+        if not url:
+            print("Error: No URL provided.")
+            sys.exit(1)
     
     try:
-        print("Downloading album...")
-        album_folder = download_album(url, download_dir)
-        
-        if not album_folder:
-            print("Error: Could not detect downloaded album folder.")
-            sys.exit(1)
-        
-        print(f"Downloaded to: {album_folder}")
-        
-        print("Recompressing FLAC files to level 8...")
-        recompress_flac_files(album_folder, flac_path)
-        print("Recompression complete.")
-        
-        print(f"Moving album to {destination_dir}...")
-        final_path = move_album(album_folder, destination_dir)
-        print(f"Album moved to: {final_path}")
+        if not use_existing:
+            print("Downloading album...")
+            album_folder = download_album(url, download_dir)
+            
+            if not album_folder:
+                print("Error: Could not detect downloaded album folder.")
+                sys.exit(1)
+            
+            print(f"Downloaded to: {album_folder}")
+            
+            print("Recompressing FLAC files to level 8...")
+            recompress_flac_files(album_folder, flac_path)
+            print("Recompression complete.")
+            
+            print(f"Moving album to {destination_dir}...")
+            final_path = move_album(album_folder, destination_dir)
+            print(f"Album moved to: {final_path}")
         
         print("Creating torrent file...")
         torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
