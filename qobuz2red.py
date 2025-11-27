@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 
+from mutagen.flac import FLAC
 from torf import Torrent
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -112,6 +113,41 @@ def get_piece_size(total_size):
         return 1024 * KiB
     else:
         return 2048 * KiB
+
+
+def read_flac_metadata(album_folder):
+    """Read metadata from the first FLAC file in the album folder."""
+    flac_files = [
+        f for f in os.listdir(album_folder)
+        if f.lower().endswith(".flac")
+    ]
+    
+    if not flac_files:
+        return None
+    
+    flac_path = os.path.join(album_folder, flac_files[0])
+    audio = FLAC(flac_path)
+    
+    # Get tags (FLAC tags are lists, so we take the first value)
+    def get_tag(tag_name):
+        values = audio.get(tag_name, [])
+        return values[0] if values else ""
+    
+    # Get audio info
+    bits_per_sample = audio.info.bits_per_sample
+    sample_rate = audio.info.sample_rate
+    
+    metadata = {
+        "artist": get_tag("artist"),
+        "album": get_tag("album"),
+        "year": get_tag("date")[:4] if get_tag("date") else get_tag("year"),
+        "label": get_tag("label") or get_tag("organization"),
+        "genre": get_tag("genre"),
+        "bits_per_sample": bits_per_sample,
+        "sample_rate": sample_rate,
+    }
+    
+    return metadata
 
 
 def create_torrent(album_folder, announce_url, output_dir):
