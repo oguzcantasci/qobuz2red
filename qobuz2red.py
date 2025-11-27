@@ -169,6 +169,136 @@ def get_release_description(bits_per_sample, sample_rate):
     return f"{bits_per_sample}/{sample_rate_str} Qobuz Rip"
 
 
+# Release type mappings for RED
+RELEASE_TYPES = {
+    1: "Album",
+    3: "Soundtrack",
+    5: "EP",
+    6: "Anthology",
+    7: "Compilation",
+    9: "Single",
+    11: "Live album",
+    13: "Remix",
+    14: "Bootleg",
+    15: "Interview",
+    16: "Mixtape",
+    17: "Demo",
+    18: "Concert Recording",
+    19: "DJ Mix",
+    21: "Unknown",
+}
+
+
+def prompt_field(field_name, default_value, required=True):
+    """Prompt user for a field value with a default."""
+    if default_value:
+        user_input = input(f"{field_name} [{default_value}]: ").strip()
+        return user_input if user_input else default_value
+    else:
+        while True:
+            user_input = input(f"{field_name}: ").strip()
+            if user_input or not required:
+                return user_input
+            print(f"  {field_name} is required.")
+
+
+def prompt_release_type():
+    """Prompt user to select a release type."""
+    print("\nRelease Types:")
+    for key, value in RELEASE_TYPES.items():
+        print(f"  {key}: {value}")
+    
+    while True:
+        try:
+            choice = int(input("Select release type [1]: ").strip() or "1")
+            if choice in RELEASE_TYPES:
+                return choice
+            print("  Invalid choice. Please select a valid release type.")
+        except ValueError:
+            print("  Please enter a number.")
+
+
+def prompt_upload_fields(metadata):
+    """Prompt user to confirm/edit all upload fields."""
+    print("\n" + "="*50)
+    print("UPLOAD DETAILS - Confirm or edit each field")
+    print("="*50 + "\n")
+    
+    # Derive defaults from metadata
+    bitrate = get_bitrate_string(metadata["bits_per_sample"])
+    release_desc = get_release_description(
+        metadata["bits_per_sample"], 
+        metadata["sample_rate"]
+    )
+    
+    fields = {}
+    
+    # Category (type)
+    fields["type"] = 0  # Music
+    print(f"Category: Music (0)")
+    
+    # Artist
+    fields["artists[]"] = prompt_field("Artist", metadata["artist"])
+    
+    # Artist importance (1 = Main)
+    fields["importance[]"] = 1
+    print(f"Artist importance: Main (1)")
+    
+    # Album title
+    fields["title"] = prompt_field("Album Title", metadata["album"])
+    
+    # Original year
+    fields["year"] = prompt_field("Original Year", metadata["year"])
+    
+    # Release type
+    fields["releasetype"] = prompt_release_type()
+    
+    # Unknown release
+    fields["unknown"] = False
+    print(f"Unknown release: No")
+    
+    # Edition/Remaster info
+    fields["remaster_year"] = prompt_field("Edition Year", metadata["year"], required=False)
+    fields["remaster_title"] = prompt_field("Edition Title", "", required=False)
+    fields["remaster_record_label"] = prompt_field("Record Label", metadata["label"], required=False)
+    fields["remaster_catalogue_number"] = prompt_field("Catalogue Number", "", required=False)
+    
+    # Scene release
+    fields["scene"] = False
+    print(f"Scene release: No")
+    
+    # Format
+    fields["format"] = "FLAC"
+    print(f"Format: FLAC")
+    
+    # Bitrate
+    fields["bitrate"] = bitrate
+    print(f"Bitrate: {bitrate}")
+    
+    # Media
+    fields["media"] = "WEB"
+    print(f"Media: WEB")
+    
+    # Tags (genre)
+    fields["tags"] = prompt_field("Tags (comma-separated)", metadata["genre"], required=False)
+    
+    # Image URL
+    fields["image"] = prompt_field("Image URL", "", required=False)
+    
+    # Album description
+    fields["album_desc"] = prompt_field("Album Description", "", required=False)
+    
+    # Release description
+    fields["release_desc"] = prompt_field("Release Description", release_desc, required=False)
+    
+    # Group ID (for adding to existing group)
+    add_to_group = input("\nAdd to existing group? (y/N): ").strip().lower()
+    if add_to_group == 'y':
+        fields["groupid"] = prompt_field("Group ID", "", required=True)
+    
+    return fields
+
+
 def create_torrent(album_folder, announce_url, output_dir):
     """Create a RED-compliant torrent file."""
     if not os.path.exists(output_dir):
