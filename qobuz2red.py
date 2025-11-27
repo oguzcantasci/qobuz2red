@@ -414,6 +414,7 @@ def main():
     torrent_output_dir = config["torrent_output_dir"]
     api_key = config["api_key"]
     debug = config.get("debug", False)
+    watch_folder = config.get("watch_folder")
     
     # Check for existing albums in destination
     existing_albums = get_existing_folders(destination_dir)
@@ -521,6 +522,15 @@ def main():
                 print(f"\nUpload successful!")
                 print(f"  Torrent ID: {response.get('torrentid')}")
                 print(f"  Group ID: {response.get('groupid')}")
+                
+                # Move torrent to watch folder if configured
+                if watch_folder:
+                    if not os.path.exists(watch_folder):
+                        os.makedirs(watch_folder)
+                    torrent_filename = os.path.basename(torrent_path)
+                    watch_path = os.path.join(watch_folder, torrent_filename)
+                    shutil.move(torrent_path, watch_path)
+                    print(f"  Torrent moved to: {watch_path}")
             else:
                 print(f"\nUpload failed: {upload_result.get('error', 'Unknown error')}")
                 sys.exit(1)
