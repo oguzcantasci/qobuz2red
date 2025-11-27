@@ -90,6 +90,28 @@ def get_folder_size(folder_path):
     return total_size
 
 
+def get_piece_size(total_size):
+    """Get recommended piece size based on RED's guidelines."""
+    MiB = 1024 * 1024
+    GiB = 1024 * MiB
+    KiB = 1024
+    
+    if total_size <= 50 * MiB:
+        return 32 * KiB
+    elif total_size <= 150 * MiB:
+        return 64 * KiB
+    elif total_size <= 350 * MiB:
+        return 128 * KiB
+    elif total_size <= 512 * MiB:
+        return 256 * KiB
+    elif total_size <= 1 * GiB:
+        return 512 * KiB
+    elif total_size <= 2 * GiB:
+        return 1024 * KiB
+    else:
+        return 2048 * KiB
+
+
 def main():
     try:
         config = load_config()
