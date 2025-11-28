@@ -7,7 +7,16 @@ import sys
 import requests
 from bs4 import BeautifulSoup
 from mutagen.flac import FLAC
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.prompt import Prompt, Confirm
+from rich.table import Table
+from rich.text import Text
 from torf import Torrent
+
+# Rich console for styled output
+console = Console()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
