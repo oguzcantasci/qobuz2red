@@ -545,10 +545,18 @@ def create_torrent(album_folder, announce_url, output_dir):
 
 
 def main():
+    # Display header
+    console.print()
+    console.print(Panel.fit(
+        "[bold cyan]Qobuz to RED Uploader[/bold cyan]\n[dim]Download, recompress, and upload to RED[/dim]",
+        border_style="cyan"
+    ))
+    console.print()
+    
     try:
         config = load_config()
     except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON in config file: {e}")
+        console.print(f"[red]Error:[/red] Invalid JSON in config file: {e}")
         sys.exit(1)
     
     download_dir = config["qobuz_download_dir"]
