@@ -68,18 +68,29 @@ def recompress_flac_files(album_folder, flac_path):
     ]
     
     if not flac_files:
-        print("Warning: No FLAC files found in album folder.")
+        console.print("[yellow]Warning:[/yellow] No FLAC files found in album folder.")
         return
     
-    print(f"Found {len(flac_files)} FLAC file(s) to recompress.")
-    
-    for i, flac_file in enumerate(flac_files, 1):
-        print(f"  [{i}/{len(flac_files)}] {flac_file}")
-        file_path = os.path.join(album_folder, flac_file)
-        subprocess.run(
-            [flac_path, "-f8", file_path],
-            check=True
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task(
+            f"[cyan]Recompressing {len(flac_files)} FLAC files...",
+            total=len(flac_files)
         )
+        
+        for flac_file in flac_files:
+            file_path = os.path.join(album_folder, flac_file)
+            subprocess.run(
+                [flac_path, "-f8", file_path],
+                check=True,
+                capture_output=True  # Suppress flac output for cleaner progress bar
+            )
+            progress.advance(task)
 
 
 def move_album(album_folder, destination_dir):
