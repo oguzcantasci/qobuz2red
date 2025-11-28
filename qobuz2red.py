@@ -582,20 +582,31 @@ def main():
         albums_with_time.sort(key=lambda x: x[1], reverse=True)
         recent_albums = [album for album, _ in albums_with_time[:10]]
         
-        print("\nExisting albums in destination (10 most recent):")
-        for i, album in enumerate(recent_albums, 1):
-            print(f"  {i}. {album}")
+        # Display albums in a table
+        table = Table(title="Recent Albums (10 most recent)", border_style="blue")
+        table.add_column("#", style="cyan", width=4)
+        table.add_column("Album", style="white")
         
-        use_existing = input("\nUse existing album? Enter number (or press Enter to download new): ").strip()
+        for i, album in enumerate(recent_albums, 1):
+            table.add_row(str(i), album)
+        
+        console.print()
+        console.print(table)
+        
+        use_existing = Prompt.ask(
+            "\n[cyan]Use existing album?[/cyan] Enter number",
+            default="",
+            show_default=False
+        )
         
         if use_existing:
             try:
                 album_index = int(use_existing) - 1
                 album_name = recent_albums[album_index]
                 final_path = os.path.join(destination_dir, album_name)
-                print(f"\nUsing existing album: {final_path}")
+                console.print(f"\n[green]✓[/green] Using existing album: [bold]{final_path}[/bold]")
             except (ValueError, IndexError):
-                print("Invalid selection, proceeding with download...")
+                console.print("[yellow]Invalid selection, proceeding with download...[/yellow]")
                 use_existing = None
     else:
         use_existing = None
