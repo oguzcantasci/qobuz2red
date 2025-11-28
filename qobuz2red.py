@@ -551,12 +551,22 @@ def main():
     debug = config.get("debug", False)
     watch_folder = config.get("watch_folder")
     
-    # Check for existing albums in destination
+    # Check for existing albums in destination (sorted by date, newest first, max 10)
     existing_albums = get_existing_folders(destination_dir)
     
     if existing_albums:
-        print("\nExisting albums in destination:")
-        for i, album in enumerate(sorted(existing_albums), 1):
+        # Sort by modification time (newest first)
+        albums_with_time = []
+        for album in existing_albums:
+            album_path = os.path.join(destination_dir, album)
+            mtime = os.path.getmtime(album_path)
+            albums_with_time.append((album, mtime))
+        
+        albums_with_time.sort(key=lambda x: x[1], reverse=True)
+        recent_albums = [album for album, _ in albums_with_time[:10]]
+        
+        print("\nExisting albums in destination (10 most recent):")
+        for i, album in enumerate(recent_albums, 1):
             print(f"  {i}. {album}")
         
         use_existing = input("\nUse existing album? Enter number (or press Enter to download new): ").strip()
@@ -564,7 +574,7 @@ def main():
         if use_existing:
             try:
                 album_index = int(use_existing) - 1
-                album_name = sorted(existing_albums)[album_index]
+                album_name = recent_albums[album_index]
                 final_path = os.path.join(destination_dir, album_name)
                 print(f"\nUsing existing album: {final_path}")
             except (ValueError, IndexError):
