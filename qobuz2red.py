@@ -217,7 +217,7 @@ def get_qobuz_cover(url):
         
         return None
     except Exception as e:
-        print(f"Warning: Could not fetch album cover: {e}")
+        console.print(f"[yellow]Warning:[/yellow] Could not fetch album cover: {e}")
         return None
 
 
@@ -277,7 +277,7 @@ def get_qobuz_tracklist(url):
         
         return None
     except Exception as e:
-        print(f"Warning: Could not fetch tracklist: {e}")
+        console.print(f"[yellow]Warning:[/yellow] Could not fetch tracklist: {e}")
         return None
 
 
@@ -344,25 +344,31 @@ def prompt_multiline(field_name, default=None):
 
 def prompt_release_type():
     """Prompt user to select a release type."""
-    print("\nRelease Types:")
+    table = Table(title="Release Types", border_style="dim")
+    table.add_column("ID", style="cyan", width=4)
+    table.add_column("Type", style="white")
+    
     for key, value in RELEASE_TYPES.items():
-        print(f"  {key}: {value}")
+        table.add_row(str(key), value)
+    
+    console.print()
+    console.print(table)
     
     while True:
         try:
-            choice = int(input("Select release type [1]: ").strip() or "1")
+            choice = int(Prompt.ask("Select release type", default="1"))
             if choice in RELEASE_TYPES:
                 return choice
-            print("  Invalid choice. Please select a valid release type.")
+            console.print("[yellow]Invalid choice. Please select a valid release type.[/yellow]")
         except ValueError:
-            print("  Please enter a number.")
+            console.print("[yellow]Please enter a number.[/yellow]")
 
 
 def prompt_upload_fields(metadata, qobuz_url=None):
     """Prompt user to confirm/edit all upload fields."""
-    print("\n" + "="*50)
-    print("UPLOAD DETAILS - Confirm or edit each field")
-    print("="*50 + "\n")
+    console.print()
+    console.print(Panel("[bold]UPLOAD DETAILS[/bold] - Confirm or edit each field", border_style="cyan"))
+    console.print()
     
     # Derive defaults from metadata
     bitrate = get_bitrate_string(metadata["bits_per_sample"])
@@ -373,32 +379,34 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     )
     
     # Try to get album cover and tracklist from Qobuz
-    print("Fetching album info from Qobuz...")
+    console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
     album_cover = get_qobuz_cover(qobuz_url)
     tracklist = get_qobuz_tracklist(qobuz_url)
     
     if album_cover:
-        print(f"Found album cover: {album_cover[:50]}...")
+        console.print(f"[green]✓[/green] Found album cover")
     else:
-        print("Could not fetch album cover automatically.")
+        console.print("[dim]Could not fetch album cover automatically.[/dim]")
     
     if tracklist:
-        print("Found tracklist from Qobuz page.")
+        console.print("[green]✓[/green] Found tracklist from Qobuz page")
     else:
-        print("Could not fetch tracklist automatically.")
+        console.print("[dim]Could not fetch tracklist automatically.[/dim]")
     
     fields = {}
     
+    console.print()
+    
     # Category (type)
     fields["type"] = 0  # Music
-    print(f"Category: Music (0)")
+    console.print("[dim]Category:[/dim] Music")
     
     # Artist
     fields["artists[]"] = prompt_field("Artist", metadata["artist"])
     
     # Artist importance (1 = Main)
     fields["importance[]"] = 1
-    print(f"Artist importance: Main (1)")
+    console.print("[dim]Artist importance:[/dim] Main")
     
     # Album title
     fields["title"] = prompt_field("Album Title", metadata["album"])
@@ -411,7 +419,7 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     
     # Unknown release
     fields["unknown"] = "0"
-    print(f"Unknown release: No")
+    console.print("[dim]Unknown release:[/dim] No")
     
     # Edition/Remaster info
     fields["remaster_year"] = prompt_field("Edition Year", metadata["year"], required=False)
@@ -421,19 +429,19 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     
     # Scene release
     fields["scene"] = "0"
-    print(f"Scene release: No")
+    console.print("[dim]Scene release:[/dim] No")
     
     # Format
     fields["format"] = "FLAC"
-    print(f"Format: FLAC")
+    console.print("[dim]Format:[/dim] FLAC")
     
     # Bitrate
     fields["bitrate"] = bitrate
-    print(f"Bitrate: {bitrate}")
+    console.print(f"[dim]Bitrate:[/dim] {bitrate}")
     
     # Media
     fields["media"] = "WEB"
-    print(f"Media: WEB")
+    console.print("[dim]Media:[/dim] WEB")
     
     # Tags (genre)
     fields["tags"] = prompt_field("Tags (comma-separated)", metadata["genre"], required=False)
@@ -623,92 +631,98 @@ def main():
         use_existing = None
     
     if not use_existing:
-        url = input("Enter Qobuz album URL: ").strip()
+        url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan]")
         
         if not url:
-            print("Error: No URL provided.")
+            console.print("[red]Error:[/red] No URL provided.")
             sys.exit(1)
     else:
         # Ask for URL for release description when using existing album
-        url = input("Enter Qobuz album URL (for release description, optional): ").strip() or None
+        url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan] [dim](for metadata, optional)[/dim]", default="") or None
     
     try:
         if not use_existing:
-            print("Downloading album...")
+            console.print("\n[cyan]⬇[/cyan]  Downloading album...")
             album_folder = download_album(url, download_dir)
             
             if not album_folder:
-                print("Error: Could not detect downloaded album folder.")
+                console.print("[red]Error:[/red] Could not detect downloaded album folder.")
                 sys.exit(1)
             
-            print(f"Downloaded to: {album_folder}")
+            console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
             
-            print("Recompressing FLAC files to level 8...")
+            console.print("\n[cyan]🔄[/cyan] Recompressing FLAC files...")
             recompress_flac_files(album_folder, flac_path)
-            print("Recompression complete.")
+            console.print("[green]✓[/green] Recompression complete.")
             
-            print(f"Moving album to {destination_dir}...")
+            console.print(f"\n[cyan]📁[/cyan] Moving album to destination...")
             final_path = move_album(album_folder, destination_dir)
-            print(f"Album moved to: {final_path}")
+            console.print(f"[green]✓[/green] Album moved to: [dim]{final_path}[/dim]")
         
         # Check if torrent already exists
         album_name = os.path.basename(final_path)
         expected_torrent_path = os.path.join(torrent_output_dir, f"{album_name}.torrent")
         
         if os.path.exists(expected_torrent_path):
-            use_existing_torrent = input(f"\nTorrent already exists: {expected_torrent_path}\nUse existing? (Y/n): ").strip().lower()
-            if use_existing_torrent != 'n':
+            console.print(f"\n[yellow]Torrent already exists:[/yellow] {expected_torrent_path}")
+            use_existing_torrent = Confirm.ask("Use existing torrent?", default=True)
+            if use_existing_torrent:
                 torrent_path = expected_torrent_path
-                print(f"Using existing torrent: {torrent_path}")
+                console.print(f"[green]✓[/green] Using existing torrent")
             else:
-                print("Creating new torrent file...")
+                console.print("[cyan]📦[/cyan] Creating new torrent file...")
                 torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
-                print(f"Torrent created: {torrent_path}")
+                console.print(f"[green]✓[/green] Torrent created: [dim]{torrent_path}[/dim]")
         else:
-            print("Creating torrent file...")
+            console.print("\n[cyan]📦[/cyan] Creating torrent file...")
             torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
-            print(f"Torrent created: {torrent_path}")
+            console.print(f"[green]✓[/green] Torrent created: [dim]{torrent_path}[/dim]")
         
         # Read metadata for upload
-        print("\nReading FLAC metadata...")
+        console.print("\n[cyan]🔍[/cyan] Reading FLAC metadata...")
         metadata = read_flac_metadata(final_path)
         
         if not metadata:
-            print("Error: Could not read FLAC metadata.")
+            console.print("[red]Error:[/red] Could not read FLAC metadata.")
             sys.exit(1)
         
         # Prompt for upload fields
         upload_fields = prompt_upload_fields(metadata, url)
         
         # Ask if user wants to do a dry run first
-        do_dry_run = input("\nDo dry run first? (Y/n): ").strip().lower()
+        console.print()
+        do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=True)
         
-        if do_dry_run != 'n':
-            print("\n" + "="*50)
-            print("PERFORMING DRY RUN...")
-            print("="*50)
+        if do_dry_run:
+            console.print()
+            console.print(Panel("[bold]PERFORMING DRY RUN...[/bold]", border_style="yellow"))
             
             dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
             
-            print(f"\nDry run result:")
-            print(json.dumps(dry_run_result, indent=2))
+            console.print("\n[bold]Dry run result:[/bold]")
+            console.print_json(json.dumps(dry_run_result, indent=2))
             
             if dry_run_result.get("status") != "success":
-                print(f"\nDry run failed: {dry_run_result.get('error', 'Unknown error')}")
+                console.print(f"\n[red]✗ Dry run failed:[/red] {dry_run_result.get('error', 'Unknown error')}")
                 sys.exit(1)
         
         # Ask to proceed with actual upload
-        proceed = input("\nProceed with actual upload? (y/N): ").strip().lower()
+        console.print()
+        proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=False)
         
-        if proceed == 'y':
-            print("\nUploading to RED...")
+        if proceed:
+            console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
             upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False, debug=debug)
             
             if upload_result.get("status") == "success":
                 response = upload_result.get("response", {})
-                print(f"\nUpload successful!")
-                print(f"  Torrent ID: {response.get('torrentid')}")
-                print(f"  Group ID: {response.get('groupid')}")
+                console.print()
+                console.print(Panel.fit(
+                    f"[bold green]✓ Upload Successful![/bold green]\n\n"
+                    f"[white]Torrent ID:[/white] [cyan]{response.get('torrentid')}[/cyan]\n"
+                    f"[white]Group ID:[/white] [cyan]{response.get('groupid')}[/cyan]",
+                    border_style="green"
+                ))
                 
                 # Move torrent to watch folder if configured
                 if watch_folder:
@@ -717,20 +731,20 @@ def main():
                     torrent_filename = os.path.basename(torrent_path)
                     watch_path = os.path.join(watch_folder, torrent_filename)
                     shutil.move(torrent_path, watch_path)
-                    print(f"  Torrent moved to: {watch_path}")
+                    console.print(f"[green]✓[/green] Torrent moved to: [dim]{watch_path}[/dim]")
             else:
-                print(f"\nUpload failed: {upload_result.get('error', 'Unknown error')}")
+                console.print(f"\n[red]✗ Upload failed:[/red] {upload_result.get('error', 'Unknown error')}")
                 sys.exit(1)
         else:
-            print("\nUpload cancelled.")
+            console.print("\n[yellow]Upload cancelled.[/yellow]")
         
-        print("\nDone!")
+        console.print("\n[bold green]Done![/bold green]")
         
     except subprocess.CalledProcessError as e:
-        print(f"Error: Command failed: {e}")
+        console.print(f"\n[red]✗ Error:[/red] Command failed: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: {e}")
+        console.print(f"\n[red]✗ Error:[/red] {e}")
         sys.exit(1)
 
 
