@@ -214,45 +214,43 @@ def get_qobuz_tracklist(url):
         
         tracks = []
         
-        # Find all track rows - they typically have track number, title, and duration
-        # Look for track items in the page
-        track_elements = soup.find_all('div', class_='track__item')
+        # Find all track containers (div.track__items)
+        track_elements = soup.find_all('div', class_='track__items')
         
-        if not track_elements:
-            # Alternative: look for track rows
-            track_elements = soup.find_all(class_='track')
-        
-        for i, track in enumerate(track_elements, 1):
-            # Try to get track title
-            title_elem = track.find(class_='track__item--name') or track.find(class_='track-name')
-            if not title_elem:
-                # Try finding any element with track title
-                title_elem = track.find('span', class_=lambda x: x and 'name' in x.lower() if x else False)
-            
-            # Try to get duration
-            duration_elem = track.find(class_='track__item--duration') or track.find(class_='track-duration')
-            if not duration_elem:
-                # Look for time format pattern
-                duration_elem = track.find(string=lambda x: x and ':' in x and len(x.strip()) in [5, 7, 8] if x else False)
-            
-            title = title_elem.get_text(strip=True) if title_elem else f"Track {i}"
-            
-            # Get duration text
-            if duration_elem:
-                if hasattr(duration_elem, 'get_text'):
-                    duration = duration_elem.get_text(strip=True)
-                else:
-                    duration = str(duration_elem).strip()
+        for track in track_elements:
+            # Get track number
+            number_elem = track.find('div', class_='track__item--number')
+            if number_elem:
+                number_span = number_elem.find('span')
+                track_num = number_span.get_text(strip=True) if number_span else ""
             else:
-                duration = "00:00"
+                track_num = ""
             
-            # Clean up duration - ensure format is consistent
-            if duration and not duration.startswith('00:'):
-                # If duration is like "3:37", convert to "00:03:37"
-                if len(duration) <= 5:
-                    duration = f"00:{duration.zfill(5)}"
+            # Get track name
+            name_elem = track.find('div', class_='track__item--name')
+            if name_elem:
+                # Get the first span (track title), not the "Explicit" span
+                title_span = name_elem.find('span', class_=lambda x: x != 'explicit' if x else True)
+                title = title_span.get_text(strip=True) if title_span else ""
+                
+                # Check if explicit
+                explicit_span = name_elem.find('span', class_='explicit')
+                is_explicit = explicit_span is not None
+            else:
+                title = ""
+                is_explicit = False
             
-            tracks.append(f"{i}. {title} — {duration}")
+            # Get duration
+            duration_elem = track.find('span', class_='track__item--duration')
+            duration = duration_elem.get_text(strip=True) if duration_elem else "00:00:00"
+            
+            # Build track line
+            if title:
+                if is_explicit:
+                    track_line = f"{track_num}. {title} (Explicit) — {duration}"
+                else:
+                    track_line = f"{track_num}. {title} — {duration}"
+                tracks.append(track_line)
         
         if tracks:
             return "Tracklist:\n\n" + "\n".join(tracks)
