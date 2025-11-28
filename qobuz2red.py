@@ -304,32 +304,34 @@ RELEASE_TYPES = {
 def prompt_field(field_name, default_value, required=True):
     """Prompt user for a field value with a default."""
     if default_value:
-        user_input = input(f"{field_name} [{default_value}]: ").strip()
-        return user_input if user_input else default_value
+        result = Prompt.ask(f"[cyan]{field_name}[/cyan]", default=str(default_value))
+        return result
     else:
         while True:
-            user_input = input(f"{field_name}: ").strip()
-            if user_input or not required:
-                return user_input
-            print(f"  {field_name} is required.")
+            result = Prompt.ask(f"[cyan]{field_name}[/cyan]", default="")
+            if result or not required:
+                return result
+            console.print(f"[yellow]  {field_name} is required.[/yellow]")
 
 
 def prompt_multiline(field_name, default=None):
     """Prompt user for multi-line input. Empty line to finish."""
     if default:
-        print(f"\n{field_name} - Default from Qobuz:")
-        print("-" * 40)
-        print(default)
-        print("-" * 40)
-        use_default = input(f"Use this {field_name.lower()}? (Y/n/edit): ").strip().lower()
+        console.print(f"\n[cyan]{field_name}[/cyan] - [green]Default from Qobuz:[/green]")
+        console.print(Panel(default, border_style="dim"))
+        use_default = Prompt.ask(
+            f"Use this {field_name.lower()}?",
+            choices=["y", "n", "edit"],
+            default="y"
+        )
         if use_default == 'n':
             return ""
         elif use_default == 'edit':
-            print(f"Enter new {field_name} (press Enter twice to finish):")
+            console.print(f"[dim]Enter new {field_name} (press Enter twice to finish):[/dim]")
         else:
             return default
     else:
-        print(f"{field_name} (press Enter twice to finish, or just Enter to skip):")
+        console.print(f"[cyan]{field_name}[/cyan] [dim](press Enter twice to finish, or just Enter to skip):[/dim]")
     
     lines = []
     while True:
@@ -399,14 +401,14 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     
     # Category (type)
     fields["type"] = 0  # Music
-    console.print("[dim]Category:[/dim] Music")
+    console.print("[magenta]●[/magenta] [white]Category:[/white] [green]Music[/green]")
     
     # Artist
     fields["artists[]"] = prompt_field("Artist", metadata["artist"])
     
     # Artist importance (1 = Main)
     fields["importance[]"] = 1
-    console.print("[dim]Artist importance:[/dim] Main")
+    console.print("[magenta]●[/magenta] [white]Artist importance:[/white] [green]Main[/green]")
     
     # Album title
     fields["title"] = prompt_field("Album Title", metadata["album"])
@@ -419,9 +421,10 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     
     # Unknown release
     fields["unknown"] = "0"
-    console.print("[dim]Unknown release:[/dim] No")
+    console.print("[magenta]●[/magenta] [white]Unknown release:[/white] [green]No[/green]")
     
     # Edition/Remaster info
+    console.print("\n[bold yellow]Edition Info[/bold yellow]")
     fields["remaster_year"] = prompt_field("Edition Year", metadata["year"], required=False)
     fields["remaster_title"] = prompt_field("Edition Title", "", required=False)
     fields["remaster_record_label"] = prompt_field("Record Label", metadata["label"], required=False)
@@ -429,25 +432,32 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     
     # Scene release
     fields["scene"] = "0"
-    console.print("[dim]Scene release:[/dim] No")
+    console.print("[magenta]●[/magenta] [white]Scene release:[/white] [green]No[/green]")
     
-    # Format
+    # Format info
+    console.print("\n[bold yellow]Format Info[/bold yellow]")
     fields["format"] = "FLAC"
-    console.print("[dim]Format:[/dim] FLAC")
+    console.print("[magenta]●[/magenta] [white]Format:[/white] [green]FLAC[/green]")
     
     # Bitrate
     fields["bitrate"] = bitrate
-    console.print(f"[dim]Bitrate:[/dim] {bitrate}")
+    console.print(f"[magenta]●[/magenta] [white]Bitrate:[/white] [green]{bitrate}[/green]")
     
     # Media
     fields["media"] = "WEB"
-    console.print("[dim]Media:[/dim] WEB")
+    console.print("[magenta]●[/magenta] [white]Media:[/white] [green]WEB[/green]")
+    
+    # Additional info
+    console.print("\n[bold yellow]Additional Info[/bold yellow]")
     
     # Tags (genre)
     fields["tags"] = prompt_field("Tags (comma-separated)", metadata["genre"], required=False)
     
     # Image URL
     fields["image"] = prompt_field("Image URL", album_cover or "", required=False)
+    
+    # Descriptions
+    console.print("\n[bold yellow]Descriptions[/bold yellow]")
     
     # Album description (multi-line, with tracklist default if available)
     fields["album_desc"] = prompt_multiline("Album Description", tracklist)
@@ -611,9 +621,11 @@ def main():
         
         console.print()
         console.print(table)
+        console.print()
+        console.print("[dim]Enter album number to use existing, or press Enter to download new[/dim]")
         
         use_existing = Prompt.ask(
-            "\n[cyan]Use existing album?[/cyan] Enter number",
+            "[cyan]Selection[/cyan]",
             default="",
             show_default=False
         )
