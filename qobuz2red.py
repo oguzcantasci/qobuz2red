@@ -695,8 +695,16 @@ def main():
         metadata = read_flac_metadata(final_path)
         
         if not metadata:
-            console.print("[red]Error:[/red] Could not read FLAC metadata.")
-            sys.exit(1)
+            console.print("[yellow]Warning:[/yellow] Could not read FLAC metadata. You'll need to enter details manually.")
+            metadata = {
+                "artist": "",
+                "album": "",
+                "year": "",
+                "label": "",
+                "genre": "",
+                "bits_per_sample": 16,
+                "sample_rate": 44100,
+            }
         
         # Prompt for upload fields
         upload_fields = prompt_upload_fields(metadata, url)
