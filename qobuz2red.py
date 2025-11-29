@@ -738,7 +738,7 @@ def main():
             
             # Ask if user wants to do a dry run first
             console.print()
-            do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=True)
+            do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=False)
             
             if do_dry_run:
                 console.print()
@@ -759,7 +759,7 @@ def main():
             
             # Ask to proceed with actual upload
             console.print()
-            proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=False)
+            proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=True)
             
             if proceed:
                 console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
