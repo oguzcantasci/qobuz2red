@@ -344,21 +344,41 @@ def prompt_multiline(field_name, default=None):
     return "\n".join(lines)
 
 
-def prompt_release_type():
+def get_default_release_type(album_folder):
+    """Determine release type based on track count."""
+    try:
+        flac_files = [f for f in os.listdir(album_folder) if f.lower().endswith(".flac")]
+        track_count = len(flac_files)
+        
+        if track_count <= 3:
+            return 9   # Single
+        elif track_count <= 6:
+            return 5   # EP
+        else:
+            return 1   # Album
+    except:
+        return 1  # Default to Album
+
+
+def prompt_release_type(default=1):
     """Prompt user to select a release type."""
     table = Table(title="Release Types", border_style="dim")
     table.add_column("ID", style="cyan", width=4)
     table.add_column("Type", style="white")
     
     for key, value in RELEASE_TYPES.items():
-        table.add_row(str(key), value)
+        # Highlight the default
+        if key == default:
+            table.add_row(str(key), f"[green]{value}[/green] [dim](detected)[/dim]")
+        else:
+            table.add_row(str(key), value)
     
     console.print()
     console.print(table)
     
     while True:
         try:
-            choice = int(Prompt.ask("Select release type", default="1"))
+            choice = int(Prompt.ask("Select release type", default=str(default)))
             if choice in RELEASE_TYPES:
                 return choice
             console.print("[yellow]Invalid choice. Please select a valid release type.[/yellow]")
@@ -366,11 +386,14 @@ def prompt_release_type():
             console.print("[yellow]Please enter a number.[/yellow]")
 
 
-def prompt_upload_fields(metadata, qobuz_url=None):
+def prompt_upload_fields(metadata, qobuz_url=None, album_folder=None):
     """Prompt user to confirm/edit all upload fields."""
     console.print()
     console.print(Panel("[bold]UPLOAD DETAILS[/bold] - Confirm or edit each field", border_style="cyan"))
     console.print()
+    
+    # Detect release type based on track count
+    default_release_type = get_default_release_type(album_folder) if album_folder else 1
     
     # Derive defaults from metadata
     bitrate = get_bitrate_string(metadata["bits_per_sample"])
@@ -416,8 +439,8 @@ def prompt_upload_fields(metadata, qobuz_url=None):
     # Original year
     fields["year"] = prompt_field("Original Year", metadata["year"])
     
-    # Release type
-    fields["releasetype"] = prompt_release_type()
+    # Release type (auto-detected based on track count)
+    fields["releasetype"] = prompt_release_type(default_release_type)
     
     # Unknown release
     fields["unknown"] = "0"
@@ -707,7 +730,7 @@ def main():
             }
         
         # Prompt for upload fields
-        upload_fields = prompt_upload_fields(metadata, url)
+        upload_fields = prompt_upload_fields(metadata, url, final_path)
         
         # Ask if user wants to do a dry run first
         console.print()
