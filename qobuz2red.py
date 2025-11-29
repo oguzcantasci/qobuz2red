@@ -620,175 +620,194 @@ def main():
     debug = config.get("debug", False)
     watch_folder = config.get("watch_folder")
     
-    # Check for existing albums in destination (sorted by date, newest first, max 10)
-    existing_albums = get_existing_folders(destination_dir)
-    
-    if existing_albums:
-        # Sort by modification time (newest first)
-        albums_with_time = []
-        for album in existing_albums:
-            album_path = os.path.join(destination_dir, album)
-            mtime = os.path.getmtime(album_path)
-            albums_with_time.append((album, mtime))
+    # Main loop - process albums until user exits
+    while True:
+        console.print("\n" + "─" * 50)
         
-        albums_with_time.sort(key=lambda x: x[1], reverse=True)
-        recent_albums = [album for album, _ in albums_with_time[:10]]
-        
-        # Display albums in a table
-        table = Table(title="Recent Albums (10 most recent)", border_style="blue")
-        table.add_column("#", style="cyan", width=4)
-        table.add_column("Album", style="white")
-        
-        for i, album in enumerate(recent_albums, 1):
-            table.add_row(str(i), album)
-        
-        console.print()
-        console.print(table)
-        console.print()
-        console.print("[dim]Enter album number to use existing, or press Enter to download new[/dim]")
-        
-        use_existing = Prompt.ask(
-            "[cyan]Selection[/cyan]",
-            default="",
-            show_default=False
-        )
-        
-        if use_existing:
-            try:
-                album_index = int(use_existing) - 1
-                album_name = recent_albums[album_index]
-                final_path = os.path.join(destination_dir, album_name)
-                console.print(f"\n[green]✓[/green] Using existing album: [bold]{final_path}[/bold]")
-            except (ValueError, IndexError):
-                console.print("[yellow]Invalid selection, proceeding with download...[/yellow]")
-                use_existing = None
-    else:
-        use_existing = None
-    
-    if not use_existing:
-        url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan]")
-        
-        if not url:
-            console.print("[red]Error:[/red] No URL provided.")
-            sys.exit(1)
-    else:
-        # Ask for URL for release description when using existing album
-        url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan] [dim](for metadata, optional)[/dim]", default="") or None
-    
-    try:
-        if not use_existing:
-            console.print("\n[cyan]⬇[/cyan]  Downloading album...")
-            album_folder = download_album(url, download_dir)
+        try:
+            # Check for existing albums in destination (sorted by date, newest first, max 10)
+            existing_albums = get_existing_folders(destination_dir)
             
-            if not album_folder:
-                console.print("[red]Error:[/red] Could not detect downloaded album folder.")
-                sys.exit(1)
-            
-            console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
-            
-            console.print("\n[cyan]🔄[/cyan] Recompressing FLAC files...")
-            recompress_flac_files(album_folder, flac_path)
-            console.print("[green]✓[/green] Recompression complete.")
-            
-            console.print(f"\n[cyan]📁[/cyan] Moving album to destination...")
-            final_path = move_album(album_folder, destination_dir)
-            console.print(f"[green]✓[/green] Album moved to: [dim]{final_path}[/dim]")
-        
-        # Check if torrent already exists
-        album_name = os.path.basename(final_path)
-        expected_torrent_path = os.path.join(torrent_output_dir, f"{album_name}.torrent")
-        
-        if os.path.exists(expected_torrent_path):
-            console.print(f"\n[yellow]Torrent already exists:[/yellow] {expected_torrent_path}")
-            use_existing_torrent = Confirm.ask("Use existing torrent?", default=True)
-            if use_existing_torrent:
-                torrent_path = expected_torrent_path
-                console.print(f"[green]✓[/green] Using existing torrent")
+            if existing_albums:
+                # Sort by modification time (newest first)
+                albums_with_time = []
+                for album in existing_albums:
+                    album_path = os.path.join(destination_dir, album)
+                    mtime = os.path.getmtime(album_path)
+                    albums_with_time.append((album, mtime))
+                
+                albums_with_time.sort(key=lambda x: x[1], reverse=True)
+                recent_albums = [album for album, _ in albums_with_time[:10]]
+                
+                # Display albums in a table
+                table = Table(title="Recent Albums (10 most recent)", border_style="blue")
+                table.add_column("#", style="cyan", width=4)
+                table.add_column("Album", style="white")
+                
+                for i, album in enumerate(recent_albums, 1):
+                    table.add_row(str(i), album)
+                
+                console.print()
+                console.print(table)
+                console.print()
+                console.print("[dim]Enter album number to use existing, or press Enter to download new[/dim]")
+                
+                use_existing = Prompt.ask(
+                    "[cyan]Selection[/cyan]",
+                    default="",
+                    show_default=False
+                )
+                
+                if use_existing:
+                    try:
+                        album_index = int(use_existing) - 1
+                        album_name = recent_albums[album_index]
+                        final_path = os.path.join(destination_dir, album_name)
+                        console.print(f"\n[green]✓[/green] Using existing album: [bold]{final_path}[/bold]")
+                    except (ValueError, IndexError):
+                        console.print("[yellow]Invalid selection, proceeding with download...[/yellow]")
+                        use_existing = None
             else:
-                console.print("[cyan]📦[/cyan] Creating new torrent file...")
+                use_existing = None
+            
+            if not use_existing:
+                url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan]")
+                
+                if not url:
+                    console.print("[red]Error:[/red] No URL provided.")
+                    continue
+            else:
+                # Ask for URL for release description when using existing album
+                url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan] [dim](for metadata, optional)[/dim]", default="") or None
+            
+            if not use_existing:
+                console.print("\n[cyan]⬇[/cyan]  Downloading album...")
+                album_folder = download_album(url, download_dir)
+                
+                if not album_folder:
+                    console.print("[red]Error:[/red] Could not detect downloaded album folder.")
+                    continue
+                
+                console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
+                
+                console.print("\n[cyan]🔄[/cyan] Recompressing FLAC files...")
+                recompress_flac_files(album_folder, flac_path)
+                console.print("[green]✓[/green] Recompression complete.")
+                
+                console.print(f"\n[cyan]📁[/cyan] Moving album to destination...")
+                final_path = move_album(album_folder, destination_dir)
+                console.print(f"[green]✓[/green] Album moved to: [dim]{final_path}[/dim]")
+            
+            # Check if torrent already exists
+            album_name = os.path.basename(final_path)
+            expected_torrent_path = os.path.join(torrent_output_dir, f"{album_name}.torrent")
+            
+            if os.path.exists(expected_torrent_path):
+                console.print(f"\n[yellow]Torrent already exists:[/yellow] {expected_torrent_path}")
+                use_existing_torrent = Confirm.ask("Use existing torrent?", default=True)
+                if use_existing_torrent:
+                    torrent_path = expected_torrent_path
+                    console.print(f"[green]✓[/green] Using existing torrent")
+                else:
+                    console.print("[cyan]📦[/cyan] Creating new torrent file...")
+                    torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
+                    console.print(f"[green]✓[/green] Torrent created: [dim]{torrent_path}[/dim]")
+            else:
+                console.print("\n[cyan]📦[/cyan] Creating torrent file...")
                 torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
                 console.print(f"[green]✓[/green] Torrent created: [dim]{torrent_path}[/dim]")
-        else:
-            console.print("\n[cyan]📦[/cyan] Creating torrent file...")
-            torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
-            console.print(f"[green]✓[/green] Torrent created: [dim]{torrent_path}[/dim]")
-        
-        # Read metadata for upload
-        console.print("\n[cyan]🔍[/cyan] Reading FLAC metadata...")
-        metadata = read_flac_metadata(final_path)
-        
-        if not metadata:
-            console.print("[yellow]Warning:[/yellow] Could not read FLAC metadata. You'll need to enter details manually.")
-            metadata = {
-                "artist": "",
-                "album": "",
-                "year": "",
-                "label": "",
-                "genre": "",
-                "bits_per_sample": 16,
-                "sample_rate": 44100,
-            }
-        
-        # Prompt for upload fields
-        upload_fields = prompt_upload_fields(metadata, url, final_path)
-        
-        # Ask if user wants to do a dry run first
-        console.print()
-        do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=True)
-        
-        if do_dry_run:
+            
+            # Read metadata for upload
+            console.print("\n[cyan]🔍[/cyan] Reading FLAC metadata...")
+            metadata = read_flac_metadata(final_path)
+            
+            if not metadata:
+                console.print("[yellow]Warning:[/yellow] Could not read FLAC metadata. You'll need to enter details manually.")
+                metadata = {
+                    "artist": "",
+                    "album": "",
+                    "year": "",
+                    "label": "",
+                    "genre": "",
+                    "bits_per_sample": 16,
+                    "sample_rate": 44100,
+                }
+            
+            # Prompt for upload fields
+            upload_fields = prompt_upload_fields(metadata, url, final_path)
+            
+            # Ask if user wants to do a dry run first
             console.print()
-            console.print(Panel("[bold]PERFORMING DRY RUN...[/bold]", border_style="yellow"))
+            do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=True)
             
-            dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
-            
-            console.print("\n[bold]Dry run result:[/bold]")
-            console.print_json(json.dumps(dry_run_result, indent=2))
-            
-            if dry_run_result.get("status") != "success":
-                console.print(f"\n[red]✗ Dry run failed:[/red] {dry_run_result.get('error', 'Unknown error')}")
-                sys.exit(1)
-        
-        # Ask to proceed with actual upload
-        console.print()
-        proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=False)
-        
-        if proceed:
-            console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
-            upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False, debug=debug)
-            
-            if upload_result.get("status") == "success":
-                response = upload_result.get("response", {})
+            if do_dry_run:
                 console.print()
-                console.print(Panel.fit(
-                    f"[bold green]✓ Upload Successful![/bold green]\n\n"
-                    f"[white]Torrent ID:[/white] [cyan]{response.get('torrentid')}[/cyan]\n"
-                    f"[white]Group ID:[/white] [cyan]{response.get('groupid')}[/cyan]",
-                    border_style="green"
-                ))
+                console.print(Panel("[bold]PERFORMING DRY RUN...[/bold]", border_style="yellow"))
                 
-                # Move torrent to watch folder if configured
-                if watch_folder:
-                    if not os.path.exists(watch_folder):
-                        os.makedirs(watch_folder)
-                    torrent_filename = os.path.basename(torrent_path)
-                    watch_path = os.path.join(watch_folder, torrent_filename)
-                    shutil.move(torrent_path, watch_path)
-                    console.print(f"[green]✓[/green] Torrent moved to: [dim]{watch_path}[/dim]")
+                dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
+                
+                console.print("\n[bold]Dry run result:[/bold]")
+                console.print_json(json.dumps(dry_run_result, indent=2))
+                
+                # Check for success - API returns "success" or "dry run success"
+                status = dry_run_result.get("status", "")
+                if "success" not in status.lower():
+                    console.print(f"\n[red]✗ Dry run failed:[/red] {dry_run_result.get('error', 'Unknown error')}")
+                    continue
+                else:
+                    console.print("\n[green]✓ Dry run successful![/green]")
+            
+            # Ask to proceed with actual upload
+            console.print()
+            proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=False)
+            
+            if proceed:
+                console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
+                upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False, debug=debug)
+                
+                if upload_result.get("status") == "success":
+                    response = upload_result.get("response", {})
+                    console.print()
+                    console.print(Panel.fit(
+                        f"[bold green]✓ Upload Successful![/bold green]\n\n"
+                        f"[white]Torrent ID:[/white] [cyan]{response.get('torrentid')}[/cyan]\n"
+                        f"[white]Group ID:[/white] [cyan]{response.get('groupid')}[/cyan]",
+                        border_style="green"
+                    ))
+                    
+                    # Move torrent to watch folder if configured
+                    if watch_folder:
+                        if not os.path.exists(watch_folder):
+                            os.makedirs(watch_folder)
+                        torrent_filename = os.path.basename(torrent_path)
+                        watch_path = os.path.join(watch_folder, torrent_filename)
+                        shutil.move(torrent_path, watch_path)
+                        console.print(f"[green]✓[/green] Torrent moved to: [dim]{watch_path}[/dim]")
+                else:
+                    console.print(f"\n[red]✗ Upload failed:[/red] {upload_result.get('error', 'Unknown error')}")
+                    continue
             else:
-                console.print(f"\n[red]✗ Upload failed:[/red] {upload_result.get('error', 'Unknown error')}")
+                console.print("\n[yellow]Upload cancelled.[/yellow]")
+            
+            console.print("\n[bold green]Done![/bold green]")
+            
+            # Ask if user wants to process another album
+            console.print()
+            if not Confirm.ask("[cyan]Process another album?[/cyan]", default=True):
+                console.print("\n[dim]Goodbye![/dim]")
+                break
+                
+        except subprocess.CalledProcessError as e:
+            console.print(f"\n[red]✗ Error:[/red] Command failed: {e}")
+            if not Confirm.ask("[cyan]Try another album?[/cyan]", default=True):
                 sys.exit(1)
-        else:
-            console.print("\n[yellow]Upload cancelled.[/yellow]")
-        
-        console.print("\n[bold green]Done![/bold green]")
-        
-    except subprocess.CalledProcessError as e:
-        console.print(f"\n[red]✗ Error:[/red] Command failed: {e}")
-        sys.exit(1)
-    except Exception as e:
-        console.print(f"\n[red]✗ Error:[/red] {e}")
-        sys.exit(1)
+        except KeyboardInterrupt:
+            console.print("\n\n[dim]Interrupted. Goodbye![/dim]")
+            sys.exit(0)
+        except Exception as e:
+            console.print(f"\n[red]✗ Error:[/red] {e}")
+            if not Confirm.ask("[cyan]Try another album?[/cyan]", default=True):
+                sys.exit(1)
 
 
 if __name__ == "__main__":
