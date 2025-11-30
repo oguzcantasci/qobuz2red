@@ -6,6 +6,7 @@
     "torrent_output_dir": "C:\\Torrents",
     "api_key": "YOUR_RED_API_KEY",
     "debug": false,
-    "watch_folder": "C:\\TorrentClient\\WatchFolder"
+    "watch_folder": "C:\\TorrentClient\\WatchFolder",
+    "batch_file": "C:\\path\\to\\links.txt"
 }
 
