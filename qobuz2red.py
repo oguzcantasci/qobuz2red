@@ -650,6 +650,7 @@ def main():
     api_key = config["api_key"]
     debug = config.get("debug", False)
     watch_folder = config.get("watch_folder")
+    batch_file = config.get("batch_file")
     
     # Main loop - process albums until user exits
     while True:
@@ -658,6 +659,9 @@ def main():
         try:
             # Check for existing albums in destination (sorted by date, newest first, max 10)
             existing_albums = get_existing_folders(destination_dir)
+            
+            # Check for batch links
+            batch_links = read_batch_links(batch_file)
             
             if existing_albums:
                 # Sort by modification time (newest first)
@@ -682,6 +686,8 @@ def main():
                 console.print(table)
                 console.print()
                 console.print("[dim]Enter album number to use existing, or press Enter to download new[/dim]")
+                if batch_links:
+                    console.print(f"[dim][B] Batch process from links.txt ({len(batch_links)} links found)[/dim]")
                 
                 use_existing = Prompt.ask(
                     "[cyan]Selection[/cyan]",
@@ -689,17 +695,160 @@ def main():
                     show_default=False
                 )
                 
-                if use_existing:
+                # Check for batch mode
+                if use_existing.upper() == "B" and batch_links:
+                    use_existing = None
+                    # Process batch - will be handled below
+                    pass
+                elif use_existing.upper() == "B":
+                    console.print("[yellow]No batch links found in links.txt[/yellow]")
+                    continue
+                elif use_existing:
                     try:
                         album_index = int(use_existing) - 1
                         album_name = recent_albums[album_index]
                         final_path = os.path.join(destination_dir, album_name)
                         console.print(f"\n[green]✓[/green] Using existing album: [bold]{final_path}[/bold]")
+                        batch_links = []  # Clear batch links for single mode
                     except (ValueError, IndexError):
                         console.print("[yellow]Invalid selection, proceeding with download...[/yellow]")
                         use_existing = None
+                        batch_links = []  # Clear batch links for single mode
+                else:
+                    batch_links = []  # Clear batch links for single mode
             else:
                 use_existing = None
+                # Show batch option even without existing albums
+                if batch_links:
+                    console.print(f"\n[dim][B] Batch process from links.txt ({len(batch_links)} links found)[/dim]")
+                    selection = Prompt.ask(
+                        "[cyan]Press B for batch, or Enter to download new[/cyan]",
+                        default="",
+                        show_default=False
+                    )
+                    if selection.upper() != "B":
+                        batch_links = []  # Clear for single mode
+            
+            # Batch processing mode
+            if batch_links:
+                console.print(Panel(f"[bold]BATCH MODE: Processing {len(batch_links)} albums[/bold]", border_style="cyan"))
+                
+                successful = 0
+                failed = 0
+                
+                for idx, batch_url in enumerate(batch_links, 1):
+                    console.print()
+                    console.print(Panel(f"[bold cyan]Batch {idx}/{len(batch_links)}[/bold cyan]\n{batch_url}", border_style="blue"))
+                    
+                    try:
+                        # Download
+                        console.print("\n[cyan]⬇[/cyan]  Downloading album...")
+                        album_folder = download_album(batch_url, download_dir)
+                        
+                        if not album_folder:
+                            console.print("[red]Error:[/red] Could not detect downloaded album folder.")
+                            failed += 1
+                            continue
+                        
+                        console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
+                        
+                        # Recompress
+                        console.print("\n[cyan]🔄[/cyan] Recompressing FLAC files...")
+                        recompress_flac_files(album_folder, flac_path)
+                        console.print("[green]✓[/green] Recompression complete.")
+                        
+                        # Move
+                        console.print(f"\n[cyan]📁[/cyan] Moving album to destination...")
+                        final_path = move_album(album_folder, destination_dir)
+                        console.print(f"[green]✓[/green] Album moved to: [dim]{final_path}[/dim]")
+                        
+                        # Create torrent
+                        album_name = os.path.basename(final_path)
+                        expected_torrent = os.path.join(torrent_output_dir, f"{album_name}.torrent")
+                        
+                        if os.path.exists(expected_torrent):
+                            console.print(f"[green]✓[/green] Using existing torrent")
+                            torrent_path = expected_torrent
+                        else:
+                            console.print("\n[cyan]📦[/cyan] Creating torrent file...")
+                            torrent_path = create_torrent(final_path, announce_url, torrent_output_dir)
+                            console.print(f"[green]✓[/green] Torrent created: [dim]{torrent_path}[/dim]")
+                        
+                        # Read metadata
+                        console.print("\n[cyan]🔍[/cyan] Reading FLAC metadata...")
+                        metadata = read_flac_metadata(final_path)
+                        
+                        if not metadata:
+                            console.print("[yellow]Warning:[/yellow] Could not read FLAC metadata.")
+                            metadata = {
+                                "artist": "",
+                                "album": "",
+                                "year": "",
+                                "label": "",
+                                "genre": "",
+                                "bits_per_sample": 16,
+                                "sample_rate": 44100,
+                            }
+                        
+                        # Prompt for upload fields (user confirms each upload)
+                        upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
+                        
+                        # Ask to proceed with upload
+                        console.print()
+                        if not Confirm.ask("[bold cyan]Proceed with upload?[/bold cyan]", default=True):
+                            console.print("[yellow]Skipped.[/yellow]")
+                            failed += 1
+                            continue
+                        
+                        # Upload
+                        console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
+                        upload_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=False, debug=debug)
+                        
+                        if upload_result.get("status") == "success":
+                            response = upload_result.get("response", {})
+                            console.print(Panel.fit(
+                                f"[bold green]✓ Upload Successful![/bold green]\n\n"
+                                f"[white]Torrent ID:[/white] [cyan]{response.get('torrentid')}[/cyan]\n"
+                                f"[white]Group ID:[/white] [cyan]{response.get('groupid')}[/cyan]",
+                                border_style="green"
+                            ))
+                            
+                            # Move torrent to watch folder
+                            if watch_folder:
+                                if not os.path.exists(watch_folder):
+                                    os.makedirs(watch_folder)
+                                torrent_filename = os.path.basename(torrent_path)
+                                watch_path = os.path.join(watch_folder, torrent_filename)
+                                shutil.move(torrent_path, watch_path)
+                                console.print(f"[green]✓[/green] Torrent moved to: [dim]{watch_path}[/dim]")
+                            
+                            # Mark link as processed
+                            mark_link_processed(batch_file, batch_url)
+                            successful += 1
+                        else:
+                            console.print(f"[red]✗ Upload failed:[/red] {upload_result.get('error', 'Unknown error')}")
+                            failed += 1
+                    
+                    except Exception as e:
+                        console.print(f"[red]✗ Error processing album:[/red] {e}")
+                        failed += 1
+                        continue
+                
+                # Batch summary
+                console.print()
+                console.print(Panel(
+                    f"[bold]Batch Complete![/bold]\n\n"
+                    f"[green]✓ Successful:[/green] {successful}\n"
+                    f"[red]✗ Failed:[/red] {failed}",
+                    border_style="cyan"
+                ))
+                
+                # Ask if user wants to continue
+                console.print()
+                if not Confirm.ask("[cyan]Process another batch or album?[/cyan]", default=True):
+                    console.print("\n[dim]Goodbye![/dim]")
+                    break
+                continue
             
             if not use_existing:
                 url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan]")
