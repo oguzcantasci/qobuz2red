@@ -32,6 +32,37 @@ def load_config():
         return json.load(f)
 
 
+def read_batch_links(batch_file):
+    """Read non-commented links from batch file."""
+    if not batch_file or not os.path.exists(batch_file):
+        return []
+    
+    links = []
+    with open(batch_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if line and not line.startswith("#"):
+                links.append(line)
+    return links
+
+
+def mark_link_processed(batch_file, link):
+    """Comment out a processed link in the batch file."""
+    if not batch_file or not os.path.exists(batch_file):
+        return
+    
+    with open(batch_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    
+    with open(batch_file, "w", encoding="utf-8") as f:
+        for line in lines:
+            if line.strip() == link:
+                f.write(f"# {line}" if not line.endswith("\n") else f"# {line.rstrip()}\n")
+            else:
+                f.write(line)
+
+
 def get_existing_folders(directory):
     """Get set of existing folder names in directory."""
     if not os.path.exists(directory):
