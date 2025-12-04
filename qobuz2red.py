@@ -124,6 +124,51 @@ def recompress_flac_files(album_folder, flac_path):
             progress.advance(task)
 
 
+def flatten_nested_album_folder(album_folder):
+    """
+    Detect and flatten nested folder structures caused by backslashes in metadata.
+    
+    When qobuz-dl encounters a backslash in album/artist names (e.g., "AC\DC"),
+    Windows interprets it as a path separator, creating nested folders like:
+    download_dir/AC/DC - Album/ instead of download_dir/AC-DC - Album/
+    
+    This function detects such cases and flattens them.
+    """
+    while True:
+        contents = os.listdir(album_folder)
+        
+        # Check if folder contains only a single subfolder (and no files)
+        if len(contents) == 1:
+            single_item = os.path.join(album_folder, contents[0])
+            if os.path.isdir(single_item):
+                # This looks like an unwanted nested structure
+                # Flatten by combining folder names with dash
+                parent_name = os.path.basename(album_folder)
+                child_name = contents[0]
+                new_name = f"{parent_name}-{child_name}"
+                
+                # Move child contents up to parent level with new combined name
+                parent_dir = os.path.dirname(album_folder)
+                new_path = os.path.join(parent_dir, new_name)
+                
+                # Move the nested folder up with the combined name
+                shutil.move(single_item, new_path)
+                
+                # Remove the now-empty parent folder
+                os.rmdir(album_folder)
+                
+                console.print(f"[yellow]Note:[/yellow] Flattened nested folder: '{parent_name}/{child_name}' → '{new_name}'")
+                
+                # Continue checking in case there are multiple levels of nesting
+                album_folder = new_path
+                continue
+        
+        # No more nesting detected
+        break
+    
+    return album_folder
+
+
 def move_album(album_folder, destination_dir):
     """Move the album folder to the destination directory."""
     if not os.path.exists(destination_dir):
@@ -750,6 +795,9 @@ def main():
                             failed += 1
                             continue
                         
+                        # Flatten any nested folders caused by backslashes in metadata
+                        album_folder = flatten_nested_album_folder(album_folder)
+                        
                         console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
                         
                         # Recompress
@@ -867,6 +915,9 @@ def main():
                 if not album_folder:
                     console.print("[red]Error:[/red] Could not detect downloaded album folder.")
                     continue
+                
+                # Flatten any nested folders caused by backslashes in metadata
+                album_folder = flatten_nested_album_folder(album_folder)
                 
                 console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
                 
