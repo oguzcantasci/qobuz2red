@@ -357,6 +357,33 @@ def get_qobuz_tracklist(url):
         return None
 
 
+def parse_qobuz_page(url):
+    """Extract album links from a Qobuz artist/label page."""
+    from urllib.parse import urlparse
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Extract base URL (e.g., "https://www.qobuz.com")
+        parsed = urlparse(url)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        
+        album_links = []
+        for container in soup.find_all('div', class_='product__container'):
+            link = container.find('a', href=True)
+            if link and '/album/' in link['href']:
+                full_url = base_url + link['href']
+                album_links.append(full_url)
+        
+        return album_links
+    except Exception as e:
+        console.print(f"[red]Error:[/red] Could not parse page: {e}")
+        return []
+
+
 # Release type mappings for RED
 RELEASE_TYPES = {
     1: "Album",
@@ -737,6 +764,7 @@ def main():
                 console.print("[dim]Enter album number to use existing, or press Enter to download new[/dim]")
                 if batch_links:
                     console.print(f"[dim][B] Batch process from links.txt ({len(batch_links)} links found)[/dim]")
+                console.print("[dim][P] Parse Qobuz artist/label page[/dim]")
                 
                 use_existing = Prompt.ask(
                     "[cyan]Selection[/cyan]",
@@ -744,8 +772,22 @@ def main():
                     show_default=False
                 )
                 
+                # Check for parse mode
+                if use_existing.upper() == "P":
+                    page_url = Prompt.ask("[cyan]Enter Qobuz artist/label page URL[/cyan]")
+                    if page_url:
+                        console.print("[cyan]🔍[/cyan] Parsing page for album links...")
+                        batch_links = parse_qobuz_page(page_url)
+                        if batch_links:
+                            console.print(f"[green]✓[/green] Found {len(batch_links)} albums")
+                            use_existing = None
+                        else:
+                            console.print("[yellow]No album links found on this page[/yellow]")
+                            continue
+                    else:
+                        continue
                 # Check for batch mode
-                if use_existing.upper() == "B" and batch_links:
+                elif use_existing.upper() == "B" and batch_links:
                     use_existing = None
                     # Process batch - will be handled below
                     pass
@@ -767,16 +809,31 @@ def main():
                     batch_links = []  # Clear batch links for single mode
             else:
                 use_existing = None
-                # Show batch option even without existing albums
+                # Show options even without existing albums
                 if batch_links:
                     console.print(f"\n[dim][B] Batch process from links.txt ({len(batch_links)} links found)[/dim]")
-                    selection = Prompt.ask(
-                        "[cyan]Press B for batch, or Enter to download new[/cyan]",
-                        default="",
-                        show_default=False
-                    )
-                    if selection.upper() != "B":
-                        batch_links = []  # Clear for single mode
+                console.print("[dim][P] Parse Qobuz artist/label page[/dim]")
+                selection = Prompt.ask(
+                    "[cyan]Press B for batch, P to parse page, or Enter to download new[/cyan]",
+                    default="",
+                    show_default=False
+                )
+                if selection.upper() == "P":
+                    page_url = Prompt.ask("[cyan]Enter Qobuz artist/label page URL[/cyan]")
+                    if page_url:
+                        console.print("[cyan]🔍[/cyan] Parsing page for album links...")
+                        batch_links = parse_qobuz_page(page_url)
+                        if batch_links:
+                            console.print(f"[green]✓[/green] Found {len(batch_links)} albums")
+                        else:
+                            console.print("[yellow]No album links found on this page[/yellow]")
+                            continue
+                    else:
+                        continue
+                elif selection.upper() == "B" and batch_links:
+                    pass  # batch_links already set
+                else:
+                    batch_links = []  # Clear for single mode
             
             # Batch processing mode
             if batch_links:
