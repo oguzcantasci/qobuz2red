@@ -420,8 +420,12 @@ def prompt_multiline(field_name, default=None):
     return "\n".join(lines)
 
 
-def get_default_release_type(album_folder):
-    """Determine release type based on track count."""
+def get_default_release_type(album_folder, album_name=""):
+    """Determine release type based on album name and track count."""
+    # Check for remix in album name
+    if album_name and "remix" in album_name.lower():
+        return 13  # Remix
+    
     try:
         flac_files = [f for f in os.listdir(album_folder) if f.lower().endswith(".flac")]
         track_count = len(flac_files)
@@ -468,8 +472,8 @@ def prompt_upload_fields(metadata, qobuz_url=None, album_folder=None):
     console.print(Panel("[bold]UPLOAD DETAILS[/bold] - Confirm or edit each field", border_style="cyan"))
     console.print()
     
-    # Detect release type based on track count
-    default_release_type = get_default_release_type(album_folder) if album_folder else 1
+    # Detect release type based on album name and track count
+    default_release_type = get_default_release_type(album_folder, metadata.get("album", "")) if album_folder else 1
     
     # Derive defaults from metadata
     bitrate = get_bitrate_string(metadata["bits_per_sample"])
