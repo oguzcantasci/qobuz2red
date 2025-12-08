@@ -1031,9 +1031,12 @@ def main():
                         console.print("[dim]Options:[/dim]")
                         console.print("[dim]  [Enter] Review and edit fields[/dim]")
                         console.print("[dim]  [U] Use defaults and upload[/dim]")
+                        console.print("[dim]  [A] Automatic (use defaults, skip all prompts)[/dim]")
                         choice = Prompt.ask("[cyan]Choice[/cyan]", default="", show_default=False)
                         
-                        if choice.upper() == "U":
+                        auto_upload = (choice.upper() == "A")
+                        
+                        if choice.upper() == "U" or auto_upload:
                             # Use defaults without prompting
                             console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
                             upload_fields = get_default_upload_fields(metadata, batch_url, final_path)
@@ -1042,12 +1045,13 @@ def main():
                             # Normal flow with prompts
                             upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
                         
-                        # Ask to proceed with upload
-                        console.print()
-                        if not Confirm.ask("[bold cyan]Proceed with upload?[/bold cyan]", default=True):
-                            console.print("[yellow]Skipped.[/yellow]")
-                            failed += 1
-                            continue
+                        # Ask to proceed with upload (skip if auto mode)
+                        if not auto_upload:
+                            console.print()
+                            if not Confirm.ask("[bold cyan]Proceed with upload?[/bold cyan]", default=True):
+                                console.print("[yellow]Skipped.[/yellow]")
+                                failed += 1
+                                continue
                         
                         # Upload
                         console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
@@ -1170,9 +1174,12 @@ def main():
             console.print("[dim]Options:[/dim]")
             console.print("[dim]  [Enter] Review and edit fields[/dim]")
             console.print("[dim]  [U] Use defaults and upload[/dim]")
+            console.print("[dim]  [A] Automatic (use defaults, skip all prompts)[/dim]")
             choice = Prompt.ask("[cyan]Choice[/cyan]", default="", show_default=False)
             
-            if choice.upper() == "U":
+            auto_upload = (choice.upper() == "A")
+            
+            if choice.upper() == "U" or auto_upload:
                 # Use defaults without prompting
                 console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
                 upload_fields = get_default_upload_fields(metadata, url, final_path)
@@ -1181,30 +1188,36 @@ def main():
                 # Normal flow with prompts
                 upload_fields = prompt_upload_fields(metadata, url, final_path)
             
-            # Ask if user wants to do a dry run first
-            console.print()
-            do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=False)
-            
-            if do_dry_run:
+            # Ask if user wants to do a dry run first (skip if auto mode)
+            if not auto_upload:
                 console.print()
-                console.print(Panel("[bold]PERFORMING DRY RUN...[/bold]", border_style="yellow"))
+                do_dry_run = Confirm.ask("[cyan]Do dry run first?[/cyan]", default=False)
                 
-                dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
-                
-                console.print("\n[bold]Dry run result:[/bold]")
-                console.print_json(json.dumps(dry_run_result, indent=2))
-                
-                # Check for success - API returns "success" or "dry run success"
-                status = dry_run_result.get("status", "")
-                if "success" not in status.lower():
-                    console.print(f"\n[red]✗ Dry run failed:[/red] {dry_run_result.get('error', 'Unknown error')}")
-                    continue
-                else:
-                    console.print("\n[green]✓ Dry run successful![/green]")
+                if do_dry_run:
+                    console.print()
+                    console.print(Panel("[bold]PERFORMING DRY RUN...[/bold]", border_style="yellow"))
+                    
+                    dry_run_result = upload_torrent(torrent_path, upload_fields, api_key, dry_run=True, debug=debug)
+                    
+                    console.print("\n[bold]Dry run result:[/bold]")
+                    console.print_json(json.dumps(dry_run_result, indent=2))
+                    
+                    # Check for success - API returns "success" or "dry run success"
+                    status = dry_run_result.get("status", "")
+                    if "success" not in status.lower():
+                        console.print(f"\n[red]✗ Dry run failed:[/red] {dry_run_result.get('error', 'Unknown error')}")
+                        continue
+                    else:
+                        console.print("\n[green]✓ Dry run successful![/green]")
+            else:
+                do_dry_run = False
             
-            # Ask to proceed with actual upload
-            console.print()
-            proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=True)
+            # Ask to proceed with actual upload (skip if auto mode)
+            if not auto_upload:
+                console.print()
+                proceed = Confirm.ask("[bold cyan]Proceed with actual upload?[/bold cyan]", default=True)
+            else:
+                proceed = True
             
             if proceed:
                 console.print("\n[cyan]⬆[/cyan]  Uploading to RED...")
