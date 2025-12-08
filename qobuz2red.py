@@ -966,6 +966,17 @@ def main():
             if batch_links:
                 console.print(Panel(f"[bold]BATCH MODE: Processing {len(batch_links)} albums[/bold]", border_style="cyan"))
                 
+                # Ask for processing mode once for all albums
+                console.print()
+                console.print("[dim]Processing mode:[/dim]")
+                console.print("[dim]  [Enter] Manual (review each album)[/dim]")
+                console.print("[dim]  [A] Automatic (use defaults, skip all prompts for all albums)[/dim]")
+                mode_choice = Prompt.ask("[cyan]Mode[/cyan]", default="", show_default=False)
+                auto_mode = (mode_choice.upper() == "A")
+                
+                if auto_mode:
+                    console.print("[green]✓[/green] Automatic mode enabled - processing all albums with defaults")
+                
                 successful = 0
                 failed = 0
                 
@@ -1027,26 +1038,30 @@ def main():
                             }
                         
                         # Prompt for upload fields (user confirms each upload)
-                        console.print()
-                        console.print("[dim]Options:[/dim]")
-                        console.print("[dim]  [Enter] Review and edit fields[/dim]")
-                        console.print("[dim]  [U] Use defaults and upload[/dim]")
-                        console.print("[dim]  [A] Automatic (use defaults, skip all prompts)[/dim]")
-                        choice = Prompt.ask("[cyan]Choice[/cyan]", default="", show_default=False)
-                        
-                        auto_upload = (choice.upper() == "A")
-                        
-                        if choice.upper() == "U" or auto_upload:
-                            # Use defaults without prompting
+                        if auto_mode:
+                            # Automatic: use defaults, no prompts
                             console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
                             upload_fields = get_default_upload_fields(metadata, batch_url, final_path)
-                            console.print("[green]✓[/green] Using default values for all fields")
+                            console.print("[green]✓[/green] Using default values, auto-uploading...")
                         else:
-                            # Normal flow with prompts
-                            upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
+                            # Manual: show prompt
+                            console.print()
+                            console.print("[dim]Options:[/dim]")
+                            console.print("[dim]  [Enter] Review and edit fields[/dim]")
+                            console.print("[dim]  [U] Use defaults and upload[/dim]")
+                            choice = Prompt.ask("[cyan]Choice[/cyan]", default="", show_default=False)
+                            
+                            if choice.upper() == "U":
+                                # Use defaults without prompting
+                                console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
+                                upload_fields = get_default_upload_fields(metadata, batch_url, final_path)
+                                console.print("[green]✓[/green] Using default values for all fields")
+                            else:
+                                # Normal flow with prompts
+                                upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
                         
                         # Ask to proceed with upload (skip if auto mode)
-                        if not auto_upload:
+                        if not auto_mode:
                             console.print()
                             if not Confirm.ask("[bold cyan]Proceed with upload?[/bold cyan]", default=True):
                                 console.print("[yellow]Skipped.[/yellow]")
@@ -1183,7 +1198,10 @@ def main():
                 # Use defaults without prompting
                 console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
                 upload_fields = get_default_upload_fields(metadata, url, final_path)
-                console.print("[green]✓[/green] Using default values for all fields")
+                if auto_upload:
+                    console.print("[green]✓[/green] Using default values, auto-uploading...")
+                else:
+                    console.print("[green]✓[/green] Using default values for all fields")
             else:
                 # Normal flow with prompts
                 upload_fields = prompt_upload_fields(metadata, url, final_path)
