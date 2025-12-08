@@ -593,6 +593,48 @@ def prompt_release_type(default=1):
             console.print("[yellow]Please enter a number.[/yellow]")
 
 
+def get_default_upload_fields(metadata, qobuz_url=None, album_folder=None):
+    """Generate upload fields with all defaults/parsed values without prompting."""
+    # Detect release type based on album name and track count
+    default_release_type = get_default_release_type(album_folder, metadata.get("album", "")) if album_folder else 1
+    
+    # Derive defaults from metadata
+    bitrate = get_bitrate_string(metadata["bits_per_sample"])
+    release_desc = get_release_description(
+        metadata["bits_per_sample"], 
+        metadata["sample_rate"],
+        qobuz_url
+    )
+    
+    # Try to get album cover and tracklist from Qobuz
+    album_cover = get_qobuz_cover(qobuz_url)
+    tracklist = get_qobuz_tracklist(qobuz_url)
+    
+    fields = {
+        "type": 0,  # Music
+        "artists[]": metadata.get("artist", ""),
+        "importance[]": 1,  # Main
+        "title": metadata.get("album", ""),
+        "year": metadata.get("year", ""),
+        "releasetype": default_release_type,
+        "unknown": "0",
+        "remaster_year": metadata.get("year", ""),
+        "remaster_title": "",
+        "remaster_record_label": metadata.get("label", ""),
+        "remaster_catalogue_number": "",
+        "scene": "0",
+        "format": "FLAC",
+        "bitrate": bitrate,
+        "media": "WEB",
+        "tags": metadata.get("genre", ""),
+        "image": album_cover or "",
+        "album_desc": tracklist or "",
+        "release_desc": release_desc,
+    }
+    
+    return fields
+
+
 def prompt_upload_fields(metadata, qobuz_url=None, album_folder=None):
     """Prompt user to confirm/edit all upload fields."""
     console.print()
@@ -985,7 +1027,20 @@ def main():
                             }
                         
                         # Prompt for upload fields (user confirms each upload)
-                        upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
+                        console.print()
+                        console.print("[dim]Options:[/dim]")
+                        console.print("[dim]  [Enter] Review and edit fields[/dim]")
+                        console.print("[dim]  [U] Use defaults and upload[/dim]")
+                        choice = Prompt.ask("[cyan]Choice[/cyan]", default="", show_default=False)
+                        
+                        if choice.upper() == "U":
+                            # Use defaults without prompting
+                            console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
+                            upload_fields = get_default_upload_fields(metadata, batch_url, final_path)
+                            console.print("[green]✓[/green] Using default values for all fields")
+                        else:
+                            # Normal flow with prompts
+                            upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
                         
                         # Ask to proceed with upload
                         console.print()
@@ -1111,7 +1166,20 @@ def main():
                 }
             
             # Prompt for upload fields
-            upload_fields = prompt_upload_fields(metadata, url, final_path)
+            console.print()
+            console.print("[dim]Options:[/dim]")
+            console.print("[dim]  [Enter] Review and edit fields[/dim]")
+            console.print("[dim]  [U] Use defaults and upload[/dim]")
+            choice = Prompt.ask("[cyan]Choice[/cyan]", default="", show_default=False)
+            
+            if choice.upper() == "U":
+                # Use defaults without prompting
+                console.print("[cyan]🔍[/cyan] Fetching album info from Qobuz...")
+                upload_fields = get_default_upload_fields(metadata, url, final_path)
+                console.print("[green]✓[/green] Using default values for all fields")
+            else:
+                # Normal flow with prompts
+                upload_fields = prompt_upload_fields(metadata, url, final_path)
             
             # Ask if user wants to do a dry run first
             console.print()
