@@ -375,32 +375,82 @@ def is_valid_qobuz_url(url):
     return parsed.netloc.endswith('qobuz.com')
 
 
-def handle_parse_qobuz_page(batch_file=None):
+def handle_parse_qobuz_page(batch_file=None, batch_parse_file=None):
     """
     Handle the [P] parse page option.
-    Prompts for URL, parses albums, shows them, and lets user choose action.
+    Prompts for URL or reads from batch_parse file, parses albums, shows them,
+    and lets user choose action.
     
     Returns:
         list: Album links to process, or empty list if cancelled/saved to file.
     """
-    page_url = Prompt.ask("[cyan]Enter Qobuz artist/label page URL[/cyan]")
-    if not page_url:
+    # Check if batch_parse file has links
+    parse_links = read_batch_links(batch_parse_file)
+    page_urls = []
+    
+    if parse_links:
+        console.print(f"\n[dim]Found {len(parse_links)} page URLs in batch parse file[/dim]")
+        console.print("[dim]  [Enter] Enter single URL[/dim]")
+        console.print("[dim]  [F] Parse all from file[/dim]")
+        source_choice = Prompt.ask("[cyan]Source[/cyan]", default="", show_default=False)
+        
+        if source_choice.upper() == "F":
+            page_urls = parse_links
+        else:
+            page_url = Prompt.ask("[cyan]Enter Qobuz artist/label page URL[/cyan]")
+            if page_url:
+                page_urls = [page_url]
+    else:
+        page_url = Prompt.ask("[cyan]Enter Qobuz artist/label page URL[/cyan]")
+        if page_url:
+            page_urls = [page_url]
+    
+    if not page_urls:
         return []
     
-    console.print("[cyan]🔍[/cyan] Parsing page for album links...")
-    album_links = parse_qobuz_page(page_url)
+    # Parse all page URLs and collect album links
+    all_album_links = []
+    processed_page_urls = []
     
-    if not album_links:
-        console.print("[yellow]No album links found on this page[/yellow]")
+    for i, url in enumerate(page_urls, 1):
+        if len(page_urls) > 1:
+            console.print(f"\n[cyan]🔍[/cyan] Parsing page {i}/{len(page_urls)}: [dim]{url}[/dim]")
+        else:
+            console.print("[cyan]🔍[/cyan] Parsing page for album links...")
+        
+        album_links = parse_qobuz_page(url)
+        
+        if album_links:
+            console.print(f"[green]✓[/green] Found {len(album_links)} albums")
+            all_album_links.extend(album_links)
+            processed_page_urls.append(url)
+        else:
+            console.print("[yellow]No album links found on this page[/yellow]")
+    
+    if not all_album_links:
+        console.print("[yellow]No album links found[/yellow]")
         return []
+    
+    # Deduplicate album links
+    seen = set()
+    unique_album_links = []
+    for link in all_album_links:
+        if link not in seen:
+            seen.add(link)
+            unique_album_links.append(link)
+    
+    if len(unique_album_links) < len(all_album_links):
+        console.print(f"[dim]Removed {len(all_album_links) - len(unique_album_links)} duplicate links[/dim]")
+    
+    all_album_links = unique_album_links
     
     # Show found albums
-    console.print(f"\n[green]✓[/green] Found {len(album_links)} albums:\n")
+    console.print(f"\n[green]✓[/green] Total: {len(all_album_links)} albums:\n")
     table = Table(border_style="dim")
     table.add_column("#", style="cyan", width=4)
     table.add_column("Album URL", style="white")
     
-    for i, link in enumerate(album_links, 1):
+    for i, link in enumerate(all_album_links, 1):
         # Extract album name from URL for display
         album_part = link.split('/album/')[-1] if '/album/' in link else link
         table.add_row(str(i), album_part)
@@ -423,16 +473,25 @@ def handle_parse_qobuz_page(batch_file=None):
         # Save to links.txt
         if batch_file:
             with open(batch_file, "a", encoding="utf-8") as f:
-                f.write("\n# Parsed from: " + page_url + "\n")
-                for link in album_links:
+                f.write("\n# Parsed from batch parse file\n")
+                for link in all_album_links:
                     f.write(link + "\n")
-            console.print(f"[green]✓[/green] Saved {len(album_links)} links to {batch_file}")
+            console.print(f"[green]✓[/green] Saved {len(all_album_links)} links to {batch_file}")
         else:
             console.print("[yellow]No batch file configured[/yellow]")
+        # Mark page URLs as processed
+        if batch_parse_file and len(page_urls) > 1:
+            for url in processed_page_urls:
+                mark_link_processed(batch_parse_file, url)
+            console.print(f"[green]✓[/green] Marked {len(processed_page_urls)} page URLs as processed")
         return []
     else:
-        # Process now
-        return album_links
+        # Process now - mark page URLs as processed
+        if batch_parse_file and len(page_urls) > 1:
+            for url in processed_page_urls:
+                mark_link_processed(batch_parse_file, url)
+            console.print(f"[green]✓[/green] Marked {len(processed_page_urls)} page URLs as processed")
+        return all_album_links
 
 
 def parse_qobuz_page(url):
@@ -869,6 +928,7 @@ def main():
     debug = config.get("debug", False)
     watch_folder = config.get("watch_folder")
     batch_file = config.get("batch_file")
+    batch_parse_file = config.get("batch_parse")
     
     # Main loop - process albums until user exits
     while True:
@@ -916,7 +976,7 @@ def main():
                 
                 # Check for parse mode
                 if use_existing.upper() == "P":
-                    batch_links = handle_parse_qobuz_page(batch_file)
+                    batch_links = handle_parse_qobuz_page(batch_file, batch_parse_file)
                     if batch_links:
                         use_existing = None
                     else:
@@ -954,7 +1014,7 @@ def main():
                     show_default=False
                 )
                 if selection.upper() == "P":
-                    batch_links = handle_parse_qobuz_page(batch_file)
+                    batch_links = handle_parse_qobuz_page(batch_file, batch_parse_file)
                     if not batch_links:
                         continue
                 elif selection.upper() == "B" and batch_links:

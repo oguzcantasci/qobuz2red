@@ -7,6 +7,7 @@
     "api_key": "YOUR_RED_API_KEY",
     "debug": false,
     "watch_folder": "C:\\TorrentClient\\WatchFolder",
-    "batch_file": "C:\\path\\to\\links.txt"
+    "batch_file": "C:\\path\\to\\links.txt",
+    "batch_parse": "C:\\path\\to\\parse_links.txt"
 }
 
