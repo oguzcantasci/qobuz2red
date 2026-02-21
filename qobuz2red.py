@@ -904,6 +904,47 @@ def create_torrent(album_folder, announce_url, output_dir):
     return torrent_path
 
 
+RED_TORRENT_BASE_URL = "https://redacted.sh/torrents.php"
+
+
+def build_red_torrent_url(response):
+    """Build full RED torrent page URL from an upload API response."""
+    group_id = response.get("groupid")
+    torrent_id = response.get("torrentid")
+    if group_id and torrent_id:
+        return f"{RED_TORRENT_BASE_URL}?id={group_id}&torrentid={torrent_id}"
+    return None
+
+
+def resolve_transplant_path(config):
+    """Return the path to transplant_cli.py inside the configured transplant repo, else None."""
+    repo_path = config.get("transplant_path", "")
+    if not repo_path:
+        return None
+    cli_path = os.path.join(repo_path, "transplant_cli.py")
+    if os.path.isfile(cli_path):
+        return cli_path
+    return None
+
+
+def run_transplant(red_url, transplant_path):
+    """Run transplant_cli.py with the given RED torrent URL. Returns True on success."""
+    if not transplant_path or not os.path.isfile(transplant_path):
+        console.print("[yellow]Transplant CLI not found, skipping OPS upload.[/yellow]")
+        return False
+    try:
+        console.print(f"[cyan]⬆[/cyan]  Transplanting to OPS: [dim]{red_url}[/dim]")
+        result = subprocess.run(
+            [sys.executable, transplant_path, red_url],
+            check=True,
+        )
+        console.print("[green]✓[/green] Transplant to OPS complete.")
+        return True
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]✗ Transplant failed:[/red] {e}")
+        return False
+
+
 def main():
     # Display header
     console.print()
@@ -929,6 +970,10 @@ def main():
     watch_folder = config.get("watch_folder")
     batch_file = config.get("batch_file")
     batch_parse_file = config.get("batch_parse")
+    transplant_path = resolve_transplant_path(config)
+    ops_enabled = transplant_path is not None
+    if ops_enabled:
+        console.print(f"[green]✓[/green] OPS upload enabled via Transplant: [dim]{transplant_path}[/dim]")
     
     # Main loop - process albums until user exits
     while True:
@@ -1039,6 +1084,7 @@ def main():
                 
                 successful = 0
                 failed = 0
+                batch_red_urls = []
                 
                 for idx, batch_url in enumerate(batch_links, 1):
                     console.print()
@@ -1153,6 +1199,17 @@ def main():
                             # Mark link as processed
                             mark_link_processed(batch_file, batch_url)
                             successful += 1
+                            
+                            # OPS upload handling
+                            if ops_enabled:
+                                red_url = build_red_torrent_url(response)
+                                if red_url:
+                                    if auto_mode:
+                                        batch_red_urls.append(red_url)
+                                    else:
+                                        console.print()
+                                        if Confirm.ask("[cyan]Upload this torrent to OPS?[/cyan]", default=True):
+                                            run_transplant(red_url, transplant_path)
                         else:
                             console.print(f"[red]✗ Upload failed:[/red] {upload_result.get('error', 'Unknown error')}")
                             failed += 1
@@ -1170,6 +1227,15 @@ def main():
                     f"[red]✗ Failed:[/red] {failed}",
                     border_style="cyan"
                 ))
+                
+                # OPS batch upload (automatic mode collects URLs, prompt once here)
+                if ops_enabled and batch_red_urls:
+                    console.print()
+                    console.print(f"[dim]{len(batch_red_urls)} RED torrent(s) ready for OPS upload.[/dim]")
+                    if Confirm.ask("[cyan]Upload all to OPS?[/cyan]", default=True):
+                        for i, red_url in enumerate(batch_red_urls, 1):
+                            console.print(f"\n[dim]OPS transplant {i}/{len(batch_red_urls)}[/dim]")
+                            run_transplant(red_url, transplant_path)
                 
                 # Ask if user wants to continue
                 console.print()
@@ -1319,6 +1385,14 @@ def main():
                         watch_path = os.path.join(watch_folder, torrent_filename)
                         shutil.move(torrent_path, watch_path)
                         console.print(f"[green]✓[/green] Torrent moved to: [dim]{watch_path}[/dim]")
+                    
+                    # OPS upload prompt (single upload)
+                    if ops_enabled:
+                        red_url = build_red_torrent_url(response)
+                        if red_url:
+                            console.print()
+                            if Confirm.ask("[cyan]Upload to OPS too?[/cyan]", default=True):
+                                run_transplant(red_url, transplant_path)
                 else:
                     console.print(f"\n[red]✗ Upload failed:[/red] {upload_result.get('error', 'Unknown error')}")
                     continue

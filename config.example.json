@@ -8,6 +8,7 @@
     "debug": false,
     "watch_folder": "C:\\TorrentClient\\WatchFolder",
     "batch_file": "C:\\path\\to\\links.txt",
-    "batch_parse": "C:\\path\\to\\parse_links.txt"
+    "batch_parse": "C:\\path\\to\\parse_links.txt",
+    "transplant_path": ""
 }
 
