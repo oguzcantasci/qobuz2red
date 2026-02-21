@@ -909,10 +909,9 @@ RED_TORRENT_BASE_URL = "https://redacted.sh/torrents.php"
 
 def build_red_torrent_url(response):
     """Build full RED torrent page URL from an upload API response."""
-    group_id = response.get("groupid")
     torrent_id = response.get("torrentid")
-    if group_id and torrent_id:
-        return f"{RED_TORRENT_BASE_URL}?id={group_id}&torrentid={torrent_id}"
+    if torrent_id:
+        return f"{RED_TORRENT_BASE_URL}?torrentid={torrent_id}"
     return None
 
 
