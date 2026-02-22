@@ -1179,6 +1179,14 @@ def main():
                 if auto_mode:
                     console.print("[green]✓[/green] Automatic mode enabled - processing all albums with defaults")
                 
+                batch_extra_tags = Prompt.ask(
+                    "[cyan]Extra tags to apply to all uploads[/cyan] [dim](comma-separated, Enter to skip)[/dim]",
+                    default="",
+                    show_default=False
+                ).strip()
+                if batch_extra_tags:
+                    console.print(f"[green]✓[/green] Extra tags: [dim]{batch_extra_tags}[/dim]")
+                
                 successful = 0
                 failed = 0
                 batch_red_urls = []
@@ -1262,6 +1270,14 @@ def main():
                             else:
                                 # Normal flow with prompts
                                 upload_fields = prompt_upload_fields(metadata, batch_url, final_path)
+                        
+                        # Merge batch extra tags
+                        if batch_extra_tags:
+                            existing = upload_fields.get("tags", "")
+                            if existing:
+                                upload_fields["tags"] = f"{existing}, {batch_extra_tags}"
+                            else:
+                                upload_fields["tags"] = batch_extra_tags
                         
                         # Ask to proceed with upload (skip if auto mode)
                         if not auto_mode:
