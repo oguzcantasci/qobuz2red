@@ -979,6 +979,8 @@ def main():
         console.print("\n" + "─" * 50)
         
         try:
+            download_only = False
+            
             # Check for existing albums in destination (sorted by date, newest first, max 10)
             existing_albums = get_existing_folders(destination_dir)
             
@@ -1011,6 +1013,7 @@ def main():
                 if batch_links:
                     console.print(f"[dim][B] Batch process from links.txt ({len(batch_links)} links found)[/dim]")
                 console.print("[dim][P] Parse Qobuz artist/label page[/dim]")
+                console.print("[dim][D] Download only (no upload)[/dim]")
                 
                 use_existing = Prompt.ask(
                     "[cyan]Selection[/cyan]",
@@ -1018,8 +1021,13 @@ def main():
                     show_default=False
                 )
                 
+                # Check for download-only mode
+                if use_existing.upper() == "D":
+                    download_only = True
+                    use_existing = None
+                    batch_links = []
                 # Check for parse mode
-                if use_existing.upper() == "P":
+                elif use_existing.upper() == "P":
                     batch_links = handle_parse_qobuz_page(batch_file, batch_parse_file)
                     if batch_links:
                         use_existing = None
@@ -1052,12 +1060,16 @@ def main():
                 if batch_links:
                     console.print(f"\n[dim][B] Batch process from links.txt ({len(batch_links)} links found)[/dim]")
                 console.print("[dim][P] Parse Qobuz artist/label page[/dim]")
+                console.print("[dim][D] Download only (no upload)[/dim]")
                 selection = Prompt.ask(
-                    "[cyan]Press B for batch, P to parse page, or Enter to download new[/cyan]",
+                    "[cyan]Press B for batch, P to parse page, D for download only, or Enter to download new[/cyan]",
                     default="",
                     show_default=False
                 )
-                if selection.upper() == "P":
+                if selection.upper() == "D":
+                    download_only = True
+                    batch_links = []
+                elif selection.upper() == "P":
                     batch_links = handle_parse_qobuz_page(batch_file, batch_parse_file)
                     if not batch_links:
                         continue
@@ -1065,6 +1077,92 @@ def main():
                     pass  # batch_links already set
                 else:
                     batch_links = []  # Clear for single mode
+            
+            # Download-only mode
+            if download_only:
+                console.print(Panel("[bold]DOWNLOAD ONLY MODE[/bold]\n[dim]Download, recompress, and move — no upload[/dim]", border_style="yellow"))
+                
+                # Sub-menu: choose source
+                dl_batch_links = read_batch_links(batch_file)
+                console.print()
+                if dl_batch_links:
+                    console.print(f"[dim][B] Batch from links.txt ({len(dl_batch_links)} links found)[/dim]")
+                console.print("[dim][P] Parse Qobuz artist/label page[/dim]")
+                console.print("[dim][Enter] Single Qobuz URL[/dim]")
+                dl_choice = Prompt.ask("[cyan]Source[/cyan]", default="", show_default=False)
+                
+                dl_urls = []
+                if dl_choice.upper() == "B" and dl_batch_links:
+                    dl_urls = dl_batch_links
+                elif dl_choice.upper() == "B":
+                    console.print("[yellow]No batch links found in links.txt[/yellow]")
+                    continue
+                elif dl_choice.upper() == "P":
+                    dl_urls = handle_parse_qobuz_page(batch_file, batch_parse_file)
+                    if not dl_urls:
+                        continue
+                else:
+                    single_url = Prompt.ask("[cyan]Enter Qobuz album URL[/cyan]")
+                    if not single_url:
+                        console.print("[red]Error:[/red] No URL provided.")
+                        continue
+                    dl_urls = [single_url]
+                
+                console.print(Panel(f"[bold]Downloading {len(dl_urls)} album(s)[/bold]", border_style="yellow"))
+                
+                dl_successful = 0
+                dl_failed = 0
+                
+                for idx, dl_url in enumerate(dl_urls, 1):
+                    if len(dl_urls) > 1:
+                        console.print(f"\n[dim]Album {idx}/{len(dl_urls)}[/dim]")
+                        console.print(f"[dim]{dl_url}[/dim]")
+                    
+                    try:
+                        console.print("\n[cyan]⬇[/cyan]  Downloading album...")
+                        album_folder = download_album(dl_url, download_dir)
+                        
+                        if not album_folder:
+                            console.print("[red]Error:[/red] Could not detect downloaded album folder.")
+                            dl_failed += 1
+                            continue
+                        
+                        album_folder = flatten_nested_album_folder(album_folder)
+                        console.print(f"[green]✓[/green] Downloaded to: [dim]{album_folder}[/dim]")
+                        
+                        console.print("\n[cyan]🔄[/cyan] Recompressing FLAC files...")
+                        recompress_flac_files(album_folder, flac_path)
+                        console.print("[green]✓[/green] Recompression complete.")
+                        
+                        console.print(f"\n[cyan]📁[/cyan] Moving album to destination...")
+                        final_path = move_album(album_folder, destination_dir)
+                        console.print(f"[green]✓[/green] Album moved to: [dim]{final_path}[/dim]")
+                        
+                        if len(dl_urls) > 1:
+                            mark_link_processed(batch_file, dl_url)
+                        
+                        dl_successful += 1
+                    except Exception as e:
+                        console.print(f"[red]✗ Error:[/red] {e}")
+                        dl_failed += 1
+                        continue
+                
+                if len(dl_urls) > 1:
+                    console.print()
+                    console.print(Panel(
+                        f"[bold]Download Complete![/bold]\n\n"
+                        f"[green]✓ Successful:[/green] {dl_successful}\n"
+                        f"[red]✗ Failed:[/red] {dl_failed}",
+                        border_style="yellow"
+                    ))
+                else:
+                    console.print("\n[bold green]Done![/bold green]")
+                
+                console.print()
+                if not Confirm.ask("[cyan]Process another?[/cyan]", default=True):
+                    console.print("\n[dim]Goodbye![/dim]")
+                    break
+                continue
             
             # Batch processing mode
             if batch_links:
